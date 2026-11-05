@@ -62,7 +62,12 @@ function questionReward(value: unknown): QuestionReward | null {
   if (typeof candidate.questionId !== "string" || candidate.questionId.length === 0) return null;
   if (candidate.status !== "eligible" && candidate.status !== "awarded" &&
       candidate.status !== "solution_revealed" && candidate.status !== "skipped") return null;
-  return { questionId: candidate.questionId, status: candidate.status };
+  return {
+    questionId: candidate.questionId,
+    status: candidate.status,
+    ...(typeof candidate.presentationId === "string" && candidate.presentationId.length > 0
+      ? { presentationId: candidate.presentationId } : {})
+  };
 }
 
 export function loadProgress(): { progress: LocalProgressV1; recovered: boolean } {

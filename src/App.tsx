@@ -125,8 +125,8 @@ function PracticePage({ progress, updateProgress, saving }: { progress: LocalPro
     return generateQuestion(skillId, nextSeed(progress), difficultyFor(progress.mastery[skillId]));
   });
   const [questionContext, setQuestionContext] = useState(() => ({
-    calibration: !progress.calibrationCompleted,
-    calibrationNumber: Math.min(progress.calibrationIndex + 1, skillIds.length)
+    calibrationIndex: progress.calibrationCompleted ? null : progress.calibrationIndex,
+    presentationId: crypto.randomUUID()
   }));
   const [answer, setAnswer] = useState("");
   const [attemptCount, setAttemptCount] = useState(0);
@@ -141,6 +141,8 @@ function PracticePage({ progress, updateProgress, saving }: { progress: LocalPro
   function makeAttempt(result: ValidationResult, revealed = solutionVisible): Attempt {
     return {
       questionId: question.id,
+      presentationId: questionContext.presentationId,
+      calibrationIndex: questionContext.calibrationIndex,
       seed: question.seed,
       skillId: question.skillId,
       difficulty: question.difficulty,
@@ -182,7 +184,7 @@ function PracticePage({ progress, updateProgress, saving }: { progress: LocalPro
       };
       const attempt = makeAttempt(skippedResult, solutionVisible);
       const commit = await updateProgress((current) => applyRewardEvent(recordAttempt(current, attempt), {
-        type: "skip", questionId: question.id
+        type: "skip", questionId: question.id, presentationId: questionContext.presentationId
       }));
       if (!commit?.applied) return;
       nextProgress = commit.progress;
@@ -190,8 +192,8 @@ function PracticePage({ progress, updateProgress, saving }: { progress: LocalPro
     const nextSkill = validQuerySkill ?? chooseSkill(nextProgress);
     setQuestion(generateQuestion(nextSkill, nextSeed(nextProgress, Date.now() + attemptCount + 1), difficultyFor(nextProgress.mastery[nextSkill])));
     setQuestionContext({
-      calibration: !nextProgress.calibrationCompleted,
-      calibrationNumber: Math.min(nextProgress.calibrationIndex + 1, skillIds.length)
+      calibrationIndex: nextProgress.calibrationCompleted ? null : nextProgress.calibrationIndex,
+      presentationId: crypto.randomUUID()
     });
     setAnswer("");
     setAttemptCount(0);
@@ -207,7 +209,9 @@ function PracticePage({ progress, updateProgress, saving }: { progress: LocalPro
       setSolutionVisible(true);
       return;
     }
-    const commit = await updateProgress((current) => applyRewardEvent(current, { type: "reveal_solution", questionId: question.id }));
+    const commit = await updateProgress((current) => applyRewardEvent(current, {
+      type: "reveal_solution", questionId: question.id, presentationId: questionContext.presentationId
+    }));
     if (commit?.applied) setSolutionVisible(true);
   }
 
@@ -221,8 +225,8 @@ function PracticePage({ progress, updateProgress, saving }: { progress: LocalPro
     <div className="practice-page page-shell">
       <section className="practice-context" aria-label="Practice context">
         <div>
-          {questionContext.calibration ? (
-            <p className="plain-kicker">Calibration {questionContext.calibrationNumber} of {skillIds.length}</p>
+          {questionContext.calibrationIndex !== null ? (
+            <p className="plain-kicker">Calibration {Math.min(questionContext.calibrationIndex + 1, skillIds.length)} of {skillIds.length}</p>
           ) : (
             <p className="plain-kicker">Adaptive practice</p>
           )}

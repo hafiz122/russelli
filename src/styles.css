@@ -97,6 +97,7 @@ math-field {
 .site-header {
   min-height: 5rem;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
@@ -116,6 +117,7 @@ math-field {
 
 .site-header nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
 }

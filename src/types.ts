@@ -47,6 +47,8 @@ export interface ValidationResult {
 
 export interface Attempt {
   questionId: string;
+  presentationId?: string;
+  calibrationIndex?: number | null;
   seed: number;
   skillId: SkillId;
   difficulty: Difficulty;
@@ -83,6 +85,7 @@ export interface LocalProgressV1 {
 
 export interface QuestionReward {
   questionId: string;
+  presentationId?: string;
   status: "eligible" | "awarded" | "solution_revealed" | "skipped";
 }
 

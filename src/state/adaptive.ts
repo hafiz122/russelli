@@ -45,10 +45,9 @@ export function nextSeed(progress: LocalProgressV1, now = Date.now()): number {
 export function recordAttempt(progress: LocalProgressV1, attempt: Attempt): LocalProgressV1 {
   const delta = attempt.correct ? (attempt.attemptCount === 1 ? 0.08 : 0.04) : -0.07;
   const nextScore = Math.max(0, Math.min(1, progress.mastery[attempt.skillId] + delta));
-  const alreadyCompleted = progress.recentAttempts.some(previous =>
-    previous.questionId === attempt.questionId && (previous.correct || previous.solutionRevealed)
-  );
-  const nextCalibrationIndex = progress.calibrationCompleted || alreadyCompleted
+  const completesCurrentSlot = attempt.calibrationIndex === progress.calibrationIndex &&
+    (attempt.correct || attempt.solutionRevealed);
+  const nextCalibrationIndex = progress.calibrationCompleted || !completesCurrentSlot
     ? progress.calibrationIndex
     : Math.min(skillIds.length, progress.calibrationIndex + (attempt.correct || attempt.solutionRevealed ? 1 : 0));
 
@@ -62,6 +61,7 @@ export function recordAttempt(progress: LocalProgressV1, attempt: Attempt): Loca
   }, {
     type: "answer",
     questionId: attempt.questionId,
+    presentationId: attempt.presentationId,
     parseable: true,
     correct: attempt.correct,
     solutionRevealed: attempt.solutionRevealed

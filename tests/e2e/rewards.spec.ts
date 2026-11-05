@@ -7,7 +7,7 @@ import { skills, skillIds } from "../../src/data/skills";
 
 async function startPractice(page: Page, overrides: Partial<LocalProgressV1> = {}, path = "/practice/?topic=expressions") {
   await page.goto("/");
-  await page.evaluate((progress) => localStorage.setItem("nurkh.progress.v1", JSON.stringify(progress)), {
+  await page.evaluate((progress) => localStorage.setItem("russelli.progress.v1", JSON.stringify(progress)), {
     ...createDefaultProgress(), ...overrides
   });
   await page.addInitScript(() => { Date.now = () => 12_345; });
@@ -72,7 +72,7 @@ test("shared calibration presentations cover all eight topics without skipping a
     await solve(page);
     if (skillId !== "functions") await page.getByRole("button", { name: "Load the next question" }).click();
   }
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("nurkh.progress.v1")!));
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("russelli.progress.v1")!));
   expect(stored.calibrationCompleted).toBe(true);
   expect(stored.calibrationIndex).toBe(8);
   expect(stored.recentAttempts.map((attempt: { skillId: string }) => attempt.skillId)).toEqual(["expressions", ...skillIds]);
@@ -101,7 +101,7 @@ for (const order of [[0, 1, 2], [0, 2, 1]]) {
       await solve(tabs[order[index]]);
       await expectRewards(tabs[order[index]], (index + 1) * 10, index + 1);
     }
-    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("nurkh.progress.v1")!));
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("russelli.progress.v1")!));
     expect(stored.totalPoints).toBe(30);
     expect(new Set(stored.recentAttempts.map((attempt: { questionId: string }) => attempt.questionId)).size).toBe(2);
     expect(new Set(stored.recentAttempts.map((attempt: { presentationId: string }) => attempt.presentationId)).size).toBe(3);
@@ -126,7 +126,7 @@ test("retains both tabs' answers and synchronizes their rewards", async ({ page 
   await solve(other);
   await expectRewards(page, 20, 2);
   await expectRewards(other, 20, 2);
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("nurkh.progress.v1")!));
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("russelli.progress.v1")!));
   expect(stored.recentAttempts).toHaveLength(2);
   expect(new Set(stored.recentAttempts.map((attempt: { questionId: string }) => attempt.questionId)).size).toBe(2);
 });
@@ -142,7 +142,7 @@ test("preserves concurrent awards even before tabs receive storage notifications
   await expectRewards(page, 20, 2);
   await other.reload();
   await expectRewards(other, 20, 2);
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("nurkh.progress.v1")!));
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("russelli.progress.v1")!));
   expect(stored.recentAttempts).toHaveLength(2);
 });
 
@@ -158,7 +158,7 @@ test("reset clears other practice tabs and starts a new reward record", async ({
   await solve(other);
   await expectRewards(other, 10, 1);
   await expect(page.locator(".reward-summary dd")).toHaveText(["10", "1", "1"]);
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("nurkh.progress.v1")!));
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("russelli.progress.v1")!));
   expect(stored.recentAttempts).toHaveLength(1);
 });
 
@@ -173,12 +173,12 @@ test("rejects pre-reset state even when a tab misses the reset notification", as
   await enterCorrectAnswer(other);
   await other.getByRole("button", { name: "Check answer", exact: true }).click();
   await expectRewards(other, 0, 0);
-  const cleared = await page.evaluate(() => JSON.parse(localStorage.getItem("nurkh.progress.v1")!));
+  const cleared = await page.evaluate(() => JSON.parse(localStorage.getItem("russelli.progress.v1")!));
   expect(cleared.totalPoints).toBe(0);
   expect(cleared.recentAttempts).toEqual([]);
   await solve(other);
   await expectRewards(other, 10, 1);
-  const resumed = await page.evaluate(() => JSON.parse(localStorage.getItem("nurkh.progress.v1")!));
+  const resumed = await page.evaluate(() => JSON.parse(localStorage.getItem("russelli.progress.v1")!));
   expect(resumed.recentAttempts).toHaveLength(1);
 });
 
@@ -210,7 +210,7 @@ test("keeps a failed save retryable without accepting or awarding the answer", a
     const original = Storage.prototype.setItem;
     let failNextSave = true;
     Storage.prototype.setItem = function (key, value) {
-      if (key === "nurkh.progress.v1" && failNextSave) {
+      if (key === "russelli.progress.v1" && failNextSave) {
         failNextSave = false;
         throw new DOMException("Browser storage is unavailable.", "QuotaExceededError");
       }

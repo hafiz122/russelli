@@ -6,6 +6,7 @@ import type { Attempt } from "../src/types";
 function attempt(overrides: Partial<Attempt> = {}): Attempt {
   return {
     questionId: "expressions:easy:7",
+    calibrationIndex: 0,
     seed: 7,
     skillId: "expressions",
     difficulty: "easy",
@@ -35,7 +36,9 @@ describe("local progress", () => {
 
     for (const skillId of expected) {
       expect(chooseSkill(progress)).toBe(skillId);
-      progress = recordAttempt(progress, attempt({ questionId: `${skillId}:easy:7`, skillId: skillId as Attempt["skillId"] }));
+      progress = recordAttempt(progress, attempt({
+        questionId: `${skillId}:easy:7`, skillId: skillId as Attempt["skillId"], calibrationIndex: progress.calibrationIndex
+      }));
     }
 
     expect(progress.calibrationCompleted).toBe(true);
