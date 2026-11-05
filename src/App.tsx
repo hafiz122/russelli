@@ -257,7 +257,7 @@ function PracticePage({ progress, updateProgress, saving }: { progress: LocalPro
           <span className="problem-code">Problem {question.seed.toString(36).toUpperCase()}</span>
         </div>
         <p id="problem-instruction" className="problem-instruction">{question.instruction}</p>
-        <StaticMath className="problem-equation" latex={question.promptLatex} label={question.instruction} />
+        <StaticMath className="problem-equation" latex={question.promptLatex} label={question.instruction} fitToContainer />
         <p className="paper-prompt">Work this out on paper, then enter your final answer.</p>
 
         <div className="answer-area">

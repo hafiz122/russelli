@@ -80,9 +80,10 @@ interface StaticMathProps {
   latex: string;
   label?: string;
   className?: string;
+  fitToContainer?: boolean;
 }
 
-export function StaticMath({ latex, label, className = "" }: StaticMathProps) {
+export function StaticMath({ latex, label, className = "", fitToContainer = false }: StaticMathProps) {
   const hostRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -94,9 +95,72 @@ export function StaticMath({ latex, label, className = "" }: StaticMathProps) {
     field.className = `static-math ${className}`.trim();
     field.setAttribute("aria-label", label ?? latex);
     host.append(field);
-    return () => field.remove();
-  }, [className, label, latex]);
+    if (!fitToContainer) return () => field.remove();
 
-  return <span ref={hostRef} className="static-math-host" />;
+    const clauses = latex.split(/,\s*\\quad\s*/);
+    const multiline = `\\begin{gathered}${clauses.join(",\\\\")}\\end{gathered}`;
+    let singleLineWidth = 0;
+    let displayedLatex = latex;
+    let frame = 0;
+    let disposed = false;
+
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(fit);
+    };
+
+    const fit = () => {
+      const content = field.shadowRoot?.querySelector<HTMLElement>("[part=content]");
+      const expression = content?.firstElementChild;
+      if (!content || !expression || host.clientWidth === 0) return;
+
+      const preferredSize = parseFloat(getComputedStyle(host).fontSize);
+      const currentSize = parseFloat(getComputedStyle(field).fontSize);
+      const widthPerEm = expression.getBoundingClientRect().width / currentSize;
+      if (widthPerEm === 0) return;
+      const contentStyle = getComputedStyle(content);
+      const padding = field.clientWidth - content.clientWidth +
+        parseFloat(contentStyle.paddingLeft) + parseFloat(contentStyle.paddingRight);
+      const available = Math.max(1, host.clientWidth - padding);
+      if (displayedLatex === latex) singleLineWidth = widthPerEm;
+      const nextLatex = clauses.length > 1 && singleLineWidth * preferredSize * 0.85 > available
+        ? multiline : latex;
+
+      if (nextLatex !== displayedLatex) {
+        displayedLatex = nextLatex;
+        field.value = nextLatex;
+        schedule();
+        return;
+      }
+
+      const size = Math.floor(Math.min(preferredSize, (available - 1) / widthPerEm) * 10) / 10;
+      if (Math.abs(size - currentSize) > 0.05) field.style.fontSize = `${size}px`;
+    };
+
+    const fontsChanged = () => {
+      if (disposed) return;
+      displayedLatex = latex;
+      field.value = latex;
+      schedule();
+    };
+    const observer = new ResizeObserver(schedule);
+    observer.observe(host);
+    observer.observe(field);
+    window.addEventListener("resize", schedule);
+    document.fonts.addEventListener("loadingdone", fontsChanged);
+    void document.fonts.ready.then(fontsChanged);
+    schedule();
+
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("resize", schedule);
+      document.fonts.removeEventListener("loadingdone", fontsChanged);
+      field.remove();
+    };
+  }, [className, fitToContainer, label, latex]);
+
+  return <span ref={hostRef} className={`static-math-host${fitToContainer ? " responsive-math" : ""}`} />;
 }
 

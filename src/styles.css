@@ -525,10 +525,15 @@ math-field.preview-equation {
   font-size: clamp(1.2rem, 2vw, 1.55rem);
 }
 
-math-field.problem-equation {
-  width: max-content;
-  margin: clamp(2.2rem, 7vw, 5.5rem) auto;
+.responsive-math {
+  min-width: 0;
+  margin-block: clamp(2.2rem, 7vw, 5.5rem);
   font-size: clamp(2rem, 5vw, 3.8rem);
+}
+
+math-field.problem-equation {
+  margin-inline: auto;
+  font-size: inherit;
 }
 
 .paper-prompt {
@@ -1082,9 +1087,8 @@ math-field.math-answer-field::part(placeholder) {
     align-items: flex-start;
   }
 
-  math-field.problem-equation {
+  .responsive-math {
     margin-block: 3rem;
-    overflow-x: auto;
   }
 
   math-field.math-answer-field {
