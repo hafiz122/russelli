@@ -1,7 +1,8 @@
 import { skillIds } from "../data/skills";
 import type { Attempt, LocalProgressV1, SkillId } from "../types";
 
-const STORAGE_KEY = "nurkh.progress.v1";
+const STORAGE_KEY = "russelli.progress.v1";
+const LEGACY_STORAGE_KEY = "nurkh.progress.v1";
 
 function defaultMastery(): Record<SkillId, number> {
   return Object.fromEntries(skillIds.map((id) => [id, 0.35])) as Record<SkillId, number>;
@@ -40,7 +41,7 @@ function isAttempt(value: unknown): value is Attempt {
 
 export function loadProgress(): { progress: LocalProgressV1; recovered: boolean } {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(STORAGE_KEY) ?? window.localStorage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return { progress: createDefaultProgress(), recovered: false };
     const value = JSON.parse(raw) as Partial<LocalProgressV1>;
     if (value.schemaVersion !== 1 || typeof value.mastery !== "object" || value.mastery === null) {
@@ -74,6 +75,7 @@ export function saveProgress(progress: LocalProgressV1): void {
 
 export function clearProgress(): LocalProgressV1 {
   window.localStorage.removeItem(STORAGE_KEY);
+  window.localStorage.removeItem(LEGACY_STORAGE_KEY);
   return createDefaultProgress();
 }
 

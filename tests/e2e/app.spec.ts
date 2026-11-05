@@ -162,7 +162,7 @@ for (const scenario of [
     progress.mastery.linear = scenario.mastery;
     await page.addInitScript(({ fixedTime, initialProgress }) => {
       Date.now = () => fixedTime;
-      localStorage.setItem("nurkh.progress.v1", JSON.stringify(initialProgress));
+      localStorage.setItem("russelli.progress.v1", JSON.stringify(initialProgress));
     }, { fixedTime: seed, initialProgress: progress });
     await page.goto("/practice/?topic=linear");
 

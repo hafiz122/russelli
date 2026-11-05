@@ -1,10 +1,10 @@
-# nurkh. design direction
+# russelli. design direction
 
 Reading this as: a paper-first algebra practice app for college beginners, in a modern academic visual language, dial ENERGY 1 / RHYTHM 2 / MOTION 1.
 
 ## Identity
 
-- Product mark: `nurkh.` as text, never an invented logo.
+- Product mark: `russelli.` as text, never an invented logo.
 - Personality: calm, precise, encouraging, and studious.
 - Primary surface: warm off-white paper.
 - Ink: deep charcoal for reading and strong contrast.

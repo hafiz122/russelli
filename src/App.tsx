@@ -28,7 +28,7 @@ function SiteShell({ children, route }: { children: React.ReactNode; route: Retu
     <>
       <a className="skip-link" href="#main-content">Skip to content</a>
       <header className="site-header">
-        <a className="wordmark" href={siteHref("/")} aria-label="nurkh home">nurkh.</a>
+        <a className="wordmark" href={siteHref("/")} aria-label="russelli home">russelli.</a>
         <nav aria-label="Primary navigation">
           <a className={route === "practice" ? "active" : ""} href={siteHref("/practice/")}>Practice</a>
           <a className={route === "progress" ? "active" : ""} href={siteHref("/progress/")}>Progress</a>
@@ -47,7 +47,7 @@ function RecoveryNotice({ visible }: { visible: boolean }) {
   if (!visible) return null;
   return (
     <div className="system-notice" role="status">
-      Saved progress could not be read, so nurkh. started a fresh local record.
+      Saved progress could not be read, so russelli. started a fresh local record.
     </div>
   );
 }
@@ -63,7 +63,7 @@ function HomePage({ progress }: { progress: LocalProgressV1 }) {
         <p className="plain-kicker">Paper first. Final answer here.</p>
         <h1 id="home-title">Algebra practice that leaves room for your own working.</h1>
         <p className="home-copy">
-          nurkh. gives you one question at a time. Solve it on paper, enter the final answer, and get an exact mathematical check.
+          russelli. gives you one question at a time. Solve it on paper, enter the final answer, and get an exact mathematical check.
         </p>
         <div className="home-actions">
           <a className="button primary" href={siteHref("/practice/")}>{actionLabel}</a>
@@ -384,7 +384,7 @@ function ProgressPage({ progress, updateProgress }: { progress: LocalProgressV1;
 
       <dialog ref={dialogRef} className="reset-dialog" onCancel={() => dialogRef.current?.close()}>
         <h2>Reset this progress record?</h2>
-        <p>This removes every answer and mastery score stored by nurkh. on this device.</p>
+        <p>This removes every answer and mastery score stored by russelli. on this device.</p>
         <div>
           <button className="button quiet" type="button" onClick={() => dialogRef.current?.close()}>Keep my progress</button>
           <button className="button danger" type="button" onClick={reset}>Reset progress</button>

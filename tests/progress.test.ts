@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { chooseSkill, difficultyFor, recordAttempt, setPreferredSkill } from "../src/state/adaptive";
-import { createDefaultProgress, loadProgress, saveProgress } from "../src/state/storage";
+import { clearProgress, createDefaultProgress, loadProgress, saveProgress } from "../src/state/storage";
 import type { Attempt } from "../src/types";
 
 function attempt(overrides: Partial<Attempt> = {}): Attempt {
@@ -69,7 +69,7 @@ describe("local progress", () => {
   it("discards malformed saved attempts while preserving valid history", () => {
     const progress = createDefaultProgress();
     const valid = attempt();
-    window.localStorage.setItem("nurkh.progress.v1", JSON.stringify({
+    window.localStorage.setItem("russelli.progress.v1", JSON.stringify({
       ...progress,
       recentAttempts: [null, {}, { ...valid, skillId: "unknown" }, { ...valid, correct: "yes" }, valid]
     }));
@@ -81,9 +81,38 @@ describe("local progress", () => {
     saveProgress(progress);
     expect(loadProgress()).toEqual({ progress, recovered: false });
 
-    window.localStorage.setItem("nurkh.progress.v1", "{bad json");
+    window.localStorage.setItem("russelli.progress.v1", "{bad json");
     const recovered = loadProgress();
     expect(recovered.recovered).toBe(true);
     expect(recovered.progress).toEqual(createDefaultProgress());
+  });
+
+  it("saves progress under the russelli name", () => {
+    const progress = recordAttempt(createDefaultProgress(), attempt());
+    saveProgress(progress);
+    expect(JSON.parse(window.localStorage.getItem("russelli.progress.v1")!)).toEqual(progress);
+  });
+
+  it("preserves progress saved before the rename", () => {
+    const progress = recordAttempt(createDefaultProgress(), attempt());
+    window.localStorage.setItem("nurkh.progress.v1", JSON.stringify(progress));
+    expect(loadProgress()).toEqual({ progress, recovered: false });
+  });
+
+  it("prefers current progress over progress saved before the rename", () => {
+    window.localStorage.setItem("nurkh.progress.v1", JSON.stringify(createDefaultProgress()));
+    const progress = recordAttempt(createDefaultProgress(), attempt());
+    window.localStorage.setItem("russelli.progress.v1", JSON.stringify(progress));
+    expect(loadProgress()).toEqual({ progress, recovered: false });
+  });
+
+  it("clears both progress records so old progress cannot return after a reset", () => {
+    const progress = recordAttempt(createDefaultProgress(), attempt());
+    window.localStorage.setItem("nurkh.progress.v1", JSON.stringify(progress));
+    window.localStorage.setItem("russelli.progress.v1", JSON.stringify(progress));
+    expect(clearProgress()).toEqual(createDefaultProgress());
+    expect(window.localStorage.getItem("nurkh.progress.v1")).toBeNull();
+    expect(window.localStorage.getItem("russelli.progress.v1")).toBeNull();
+    expect(loadProgress()).toEqual({ progress: createDefaultProgress(), recovered: false });
   });
 });
