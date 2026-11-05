@@ -35,7 +35,7 @@ describe("local progress", () => {
 
     for (const skillId of expected) {
       expect(chooseSkill(progress)).toBe(skillId);
-      progress = recordAttempt(progress, attempt({ skillId: skillId as Attempt["skillId"] }));
+      progress = recordAttempt(progress, attempt({ questionId: `${skillId}:easy:7`, skillId: skillId as Attempt["skillId"] }));
     }
 
     expect(progress.calibrationCompleted).toBe(true);
@@ -55,6 +55,25 @@ describe("local progress", () => {
     expect(difficultyFor(0.2)).toBe("easy");
     expect(difficultyFor(0.6)).toBe("medium");
     expect(difficultyFor(0.9)).toBe("hard");
+  });
+
+  it("counts a revealed calibration question only once across retries", () => {
+    let progress = createDefaultProgress();
+    progress = recordAttempt(progress, attempt({ correct: false, solutionRevealed: true }));
+    progress = recordAttempt(progress, attempt({ correct: false, solutionRevealed: true, attemptCount: 2 }));
+    progress = recordAttempt(progress, attempt({ solutionRevealed: true, attemptCount: 3 }));
+    expect(progress.calibrationIndex).toBe(1);
+    expect(progress.recentAttempts).toHaveLength(3);
+  });
+
+  it("discards malformed saved attempts while preserving valid history", () => {
+    const progress = createDefaultProgress();
+    const valid = attempt();
+    window.localStorage.setItem("nurkh.progress.v1", JSON.stringify({
+      ...progress,
+      recentAttempts: [null, {}, { ...valid, skillId: "unknown" }, { ...valid, correct: "yes" }, valid]
+    }));
+    expect(loadProgress().progress.recentAttempts).toEqual([valid]);
   });
 
   it("persists valid progress and recovers corrupted state", () => {

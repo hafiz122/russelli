@@ -115,7 +115,7 @@ function PracticePage({ progress, updateProgress }: { progress: LocalProgressV1;
   const [feedback, setFeedback] = useState<ValidationResult | null>(null);
   const [hintCount, setHintCount] = useState(0);
   const [solutionVisible, setSolutionVisible] = useState(false);
-  const difficulty = difficultyFor(progress.mastery[selectedSkill]);
+  const [difficulty, setDifficulty] = useState(() => difficultyFor(progress.mastery[selectedSkill]));
   const question = useMemo(
     () => generateQuestion(selectedSkill, seed, difficulty),
     [difficulty, seed, selectedSkill]
@@ -159,7 +159,9 @@ function PracticePage({ progress, updateProgress }: { progress: LocalProgressV1;
       nextProgress = recordAttempt(progress, makeAttempt(skippedResult, solutionVisible));
       updateProgress(nextProgress);
     }
-    setSelectedSkill(validQuerySkill ?? chooseSkill(nextProgress));
+    const nextSkill = validQuerySkill ?? chooseSkill(nextProgress);
+    setSelectedSkill(nextSkill);
+    setDifficulty(difficultyFor(nextProgress.mastery[nextSkill]));
     setQuestionContext({
       calibration: !nextProgress.calibrationCompleted,
       calibrationNumber: Math.min(nextProgress.calibrationIndex + 1, skillIds.length)

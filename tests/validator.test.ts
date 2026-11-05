@@ -33,6 +33,34 @@ describe("answer equivalence", () => {
     expect(validateAnswer(question("y=2x+3", "equation"), "y=2x+4").correct).toBe(false);
   });
 
+  it("rejects different lines that coincide along the old sampling path", () => {
+    const line = question("y=2x+3", "equation");
+    expect(validateAnswer(line, "x+y=0").correct).toBe(false);
+    expect(validateAnswer(line, "x-y=-2").correct).toBe(false);
+  });
+
+  it("preserves grouped fractional inequality boundaries", () => {
+    const interval = question("[\\frac{11}{2},\\infty)", "interval");
+    expect(validateAnswer(interval, "x\\ge\\frac{11}{2}").correct).toBe(true);
+    const normalized = validateAnswer(interval, "x\\ge\\frac{11}{2}").normalizedAnswer;
+    expect(validateAnswer(interval, normalized).correct).toBe(true);
+    expect(validateAnswer(interval, "\\frac{11}{2}\\le x").correct).toBe(true);
+    expect(validateAnswer(question("[-\\frac{3}{11},\\infty)", "interval"), "x\\ge-\\frac{3}{11}").correct).toBe(true);
+  });
+
+  it("rejects rational factors in a polynomial factoring task", () => {
+    const factoring = question("(x+1)(x+2)", "expression", { requiresFactoredForm: true });
+    expect(validateAnswer(factoring, "x(x+3+\\frac2x)").correct).toBe(false);
+  });
+
+  it("requires common factors to be cancelled regardless of spelling", () => {
+    const rational = question("\\frac{x+1}{x+2}", "expression", { forbiddenFactorLatex: "(x-3)" });
+    expect(validateAnswer(rational, "\\frac{(3-x)(x+1)}{(3-x)(x+2)}").correct).toBe(false);
+    expect(validateAnswer(rational, "\\frac{(x+(-3))(x+1)}{(x+(-3))(x+2)}").correct).toBe(false);
+    expect(validateAnswer(rational, "\\left(\\frac{(3-x)(x+1)}{(3-x)(x+2)}\\right)").correct).toBe(false);
+    expect(validateAnswer(rational, "\\frac{-x-1}{-x-2}").correct).toBe(true);
+  });
+
   it("checks ordered pair position", () => {
     const orderedPair = question("(2,-3)", "ordered_pair");
     expect(validateAnswer(orderedPair, "(\\frac{4}{2},-3)").correct).toBe(true);

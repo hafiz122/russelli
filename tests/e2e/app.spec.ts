@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { generateQuestion } from "../../src/math/generators";
+import { createDefaultProgress } from "../../src/state/storage";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
@@ -150,6 +151,39 @@ test("keeps accepted feedback with the current question until next", async ({ pa
   await expect(page.getByRole("heading", { name: "Equations & inequalities" })).toBeVisible();
   await expect(page.getByText("Calibration 2 of 8")).toBeVisible();
 });
+
+for (const scenario of [
+  { mastery: 0.40, difficulty: "easy", correct: true },
+  { mastery: 0.46, difficulty: "medium", correct: false }
+] as const) {
+  test(`keeps the ${scenario.difficulty} problem stable after a ${scenario.correct ? "correct" : "wrong"} answer crosses a mastery threshold`, async ({ page }) => {
+    const seed = 2;
+    const progress = createDefaultProgress();
+    progress.mastery.linear = scenario.mastery;
+    await page.addInitScript(({ fixedTime, initialProgress }) => {
+      Date.now = () => fixedTime;
+      localStorage.setItem("nurkh.progress.v1", JSON.stringify(initialProgress));
+    }, { fixedTime: seed, initialProgress: progress });
+    await page.goto("/practice/?topic=linear");
+
+    const problem = page.locator("math-field.problem-equation");
+    const prompt = await problem.evaluate(element => (element as HTMLElement & { value: string }).value);
+    const generated = generateQuestion("linear", seed, scenario.difficulty);
+    const field = page.locator("math-field.math-answer-field");
+    await field.evaluate((element, latex) => {
+      const mathField = element as HTMLElement & { value: string };
+      mathField.value = latex;
+      mathField.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    }, scenario.correct ? generated.answer.latex : "[99999,\\infty)");
+    await page.getByRole("button", { name: "Check answer" }).click();
+
+    await expect(page.getByText(scenario.correct ? "Answer accepted." : "Check your answer.", { exact: true })).toBeVisible();
+    await expect(page.locator(".difficulty-label")).toHaveText(scenario.difficulty);
+    await expect(problem).toHaveJSProperty("value", prompt);
+    await page.getByRole("button", { name: scenario.correct ? "Load the next question" : "Skip this question" }).click();
+    await expect(page.locator(".difficulty-label")).toHaveText(scenario.correct ? "medium" : "easy");
+  });
+}
 
 test("topic links override the adaptive queue", async ({ page }) => {
   await page.goto("/progress/");

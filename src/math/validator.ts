@@ -83,29 +83,60 @@ function equalEquations(actual: string, expected: string): boolean {
   const actualDifference = ce.box(["Subtract", actualLeft, actualRight]).simplify();
   const expectedDifference = ce.box(["Subtract", expectedLeft, expectedRight]).simplify();
   const variables = [...new Set([...actualDifference.freeVariables, ...expectedDifference.freeVariables])];
-  let ratio: number | null = null;
-  let samples = 0;
-
-  for (let sample = 1; sample <= 7; sample += 1) {
-    const substitution = Object.fromEntries(variables.map((variable, index) => [variable, sample * (index + 2) - 5]));
-    const actualNumber = actualDifference.subs(substitution).N();
-    const expectedNumber = expectedDifference.subs(substitution).N();
-    if (!isNumber(actualNumber) || !isNumber(expectedNumber)) return false;
-    const actualValue = actualNumber.re;
-    const expectedValue = expectedNumber.re;
-    if (!Number.isFinite(actualValue) || !Number.isFinite(expectedValue)) return false;
-    if (Math.abs(expectedValue) < 1e-10) {
-      if (Math.abs(actualValue) >= 1e-10) return false;
-      continue;
-    }
-    const currentRatio = actualValue / expectedValue;
-    if (!Number.isFinite(currentRatio) || Math.abs(currentRatio) < 1e-10) return false;
-    if (ratio !== null && Math.abs(currentRatio - ratio) > 1e-9) return false;
-    ratio = currentRatio;
-    samples += 1;
+  for (let sample = 0; sample <= variables.length; sample += 1) {
+    const substitution = Object.fromEntries(variables.map((variable, index) => [variable, index === sample - 1 ? 1 : 0]));
+    const denominator = expectedDifference.subs(substitution).simplify();
+    const numericDenominator = denominator.N();
+    if (!isNumber(numericDenominator) || numericDenominator.re === 0) continue;
+    const ratio = ce.box(["Divide", actualDifference.subs(substitution), denominator]).simplify();
+    const value = ratio.N();
+    if (!isNumber(value) || !Number.isFinite(value.re) || value.re === 0) return false;
+    const residual = ce.box(["Subtract", actualDifference, ce.box(["Multiply", ratio, expectedDifference])]).simplify();
+    return residual.isSame(ce.number(0));
   }
+  return false;
+}
 
-  return samples >= 2;
+function polynomialDegree(expression: BoxedExpression): number | null {
+  if (expression.freeVariables.length === 0) return 0;
+  if (expression.json === "x") return 1;
+  if (!isFunction(expression)) return null;
+  const degrees = expression.ops.map(polynomialDegree);
+  if (degrees.some((degree) => degree === null)) return null;
+  const values = degrees as number[];
+  switch (expression.operator) {
+    case "Delimiter":
+    case "Negate":
+      return values[0];
+    case "Add":
+    case "Subtract":
+      return Math.max(...values);
+    case "Multiply":
+    case "InvisibleOperator":
+      return values.reduce((sum, degree) => sum + degree, 0);
+    case "Divide":
+      return values[1] === 0 ? values[0] : null;
+    case "Power": {
+      const exponent = expression.ops[1].N();
+      return isNumber(exponent) && Number.isInteger(exponent.re) && exponent.re >= 0
+        ? values[0] * exponent.re
+        : null;
+    }
+    default:
+      return null;
+  }
+}
+
+function hasUncancelledPolynomialFactors(actual: string, expected: string): boolean {
+  let raw = parse(actual, false);
+  const target = parse(expected, false);
+  while (raw && isFunction(raw) && raw.operator === "Delimiter" && raw.ops.length === 1) raw = raw.ops[0];
+  if (!raw || !target || !isFunction(raw) || !isFunction(target) || raw.operator !== "Divide" || target.operator !== "Divide") return false;
+  return raw.ops.some((operand, index) => {
+    const actualDegree = polynomialDegree(operand);
+    const expectedDegree = polynomialDegree(target.ops[index]);
+    return actualDegree !== null && expectedDegree !== null && actualDegree > expectedDegree;
+  });
 }
 
 interface ParsedInterval {
@@ -130,7 +161,7 @@ function makeInterval(
     leftEndpoint: left,
     rightEndpoint: right,
     rightDelimiter,
-    normalized: `${leftDelimiter}${compact(left)},${compact(right)}${rightDelimiter}`
+    normalized: `${leftDelimiter}${left},${right}${rightDelimiter}`
   };
 }
 
@@ -161,7 +192,7 @@ function parseInterval(value: string): ParsedInterval | null {
   const leftIsX = compact(leftOperand.latex) === "x";
   const rightIsX = compact(rightOperand.latex) === "x";
   if (leftIsX === rightIsX) return null;
-  const boundary = compact((leftIsX ? rightOperand : leftOperand).simplify().latex);
+  const boundary = (leftIsX ? rightOperand : leftOperand).simplify().latex;
   const operator = relation.operator;
   const lowerBounded = leftIsX ? operator === "Greater" || operator === "GreaterEqual" : operator === "Less" || operator === "LessEqual";
   const inclusive = operator === "GreaterEqual" || operator === "LessEqual";
@@ -246,6 +277,7 @@ export function validateAnswer(question: Question, latex: string): ValidationRes
     correct = Boolean(
       (raw?.operator === "Multiply" || raw?.operator === "InvisibleOperator") &&
         isFunction(raw) &&
+        polynomialDegree(raw) === 2 &&
         raw.ops.filter((operand) => operand.freeVariables.includes("x")).length >= 2
     );
     if (!correct) {
@@ -261,7 +293,7 @@ export function validateAnswer(question: Question, latex: string): ValidationRes
 
   if (correct && question.answer.forbiddenFactorLatex) {
     const forbidden = compact(question.answer.forbiddenFactorLatex);
-    if (compact(latex).includes(forbidden)) {
+    if (compact(latex).includes(forbidden) || hasUncancelledPolynomialFactors(latex, question.answer.latex)) {
       return {
         parseable: true,
         correct: false,

@@ -321,7 +321,8 @@ const rational: QuestionGenerator = {
     }
 
     const solution = rng.nonZero(-max, max);
-    const shift = rng.nonZero(-max, max);
+    let shift = rng.nonZero(-max, max);
+    while (solution + shift === 0) shift = rng.nonZero(-max, max);
     const multiplier = rng.nonZero(2, max);
     const numerator = multiplier * (solution + shift);
 
@@ -360,7 +361,7 @@ const functions: QuestionGenerator = {
         answer: { latex: `${result}`, kind: "number" },
         hints: ["Evaluate g at the given input first.", "Use that result as the input to f."],
         workedSolution: [
-          `g(${input})=${input}^2${signedTerm(c)}=${inner}`,
+          `g(${input})=(${input})^2${signedTerm(c)}=${inner}`,
           `f(${inner})=${a}(${inner})${signedTerm(b)}=${result}`,
           `\\boxed{${result}}`
         ]

@@ -6,6 +6,27 @@ import type { Difficulty } from "../src/types";
 const difficulties: Difficulty[] = ["easy", "medium", "hard"];
 
 describe("deterministic question generators", () => {
+  for (const difficulty of difficulties) {
+    it(`rational ${difficulty} solutions satisfy the original equation across 1,000 seeds`, () => {
+      for (let seed = 1; seed <= 1_000; seed += 2) {
+        const question = generators.rational.generate(seed, difficulty);
+        const equation = question.promptLatex.match(/^\\frac\{(-?\d+)\}\{x([+-]\d+)\}=(-?\d+)$/);
+        expect(equation, question.id).not.toBeNull();
+        const [, numerator, shift, multiplier] = equation!;
+        const denominator = Number(question.answer.latex) + Number(shift);
+
+        expect(denominator, `${question.id} solution must be in the domain`).not.toBe(0);
+        expect(Number(numerator) / denominator, question.id).toBe(Number(multiplier));
+      }
+    });
+  }
+
+  it("shows the negative input as the base when squaring in a composition solution", () => {
+    const question = generators.functions.generate(4, "easy");
+
+    expect(question.workedSolution[0]).toBe("g(-5)=(-5)^2-4=21");
+  });
+
   for (const skillId of skillIds) {
     for (const difficulty of difficulties) {
       it(`${skillId} ${difficulty} is reproducible and solvable across 1,000 seeds`, () => {

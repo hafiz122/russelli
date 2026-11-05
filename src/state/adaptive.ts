@@ -44,7 +44,10 @@ export function nextSeed(progress: LocalProgressV1, now = Date.now()): number {
 export function recordAttempt(progress: LocalProgressV1, attempt: Attempt): LocalProgressV1 {
   const delta = attempt.correct ? (attempt.attemptCount === 1 ? 0.08 : 0.04) : -0.07;
   const nextScore = Math.max(0, Math.min(1, progress.mastery[attempt.skillId] + delta));
-  const nextCalibrationIndex = progress.calibrationCompleted
+  const alreadyCompleted = progress.recentAttempts.some(previous =>
+    previous.questionId === attempt.questionId && (previous.correct || previous.solutionRevealed)
+  );
+  const nextCalibrationIndex = progress.calibrationCompleted || alreadyCompleted
     ? progress.calibrationIndex
     : Math.min(skillIds.length, progress.calibrationIndex + (attempt.correct || attempt.solutionRevealed ? 1 : 0));
 
