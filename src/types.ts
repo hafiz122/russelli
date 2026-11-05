@@ -68,12 +68,22 @@ export interface SkillDefinition {
 
 export interface LocalProgressV1 {
   schemaVersion: 1;
+  resetId: string;
   calibrationCompleted: boolean;
   calibrationIndex: number;
   mastery: Record<SkillId, number>;
   recentAttempts: Attempt[];
   recentSeeds: number[];
   preferredSkill: SkillId | null;
+  totalPoints: number;
+  currentStreak: number;
+  bestStreak: number;
+  rewardQuestion: QuestionReward | null;
+}
+
+export interface QuestionReward {
+  questionId: string;
+  status: "eligible" | "awarded" | "solution_revealed" | "skipped";
 }
 
 export interface QuestionGenerator {

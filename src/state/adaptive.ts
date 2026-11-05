@@ -1,5 +1,6 @@
 import { skills, skillIds } from "../data/skills";
 import type { Attempt, Difficulty, LocalProgressV1, SkillId } from "../types";
+import { applyRewardEvent } from "./rewards";
 
 export function difficultyFor(score: number): Difficulty {
   if (score < 0.45) return "easy";
@@ -51,14 +52,20 @@ export function recordAttempt(progress: LocalProgressV1, attempt: Attempt): Loca
     ? progress.calibrationIndex
     : Math.min(skillIds.length, progress.calibrationIndex + (attempt.correct || attempt.solutionRevealed ? 1 : 0));
 
-  return {
+  return applyRewardEvent({
     ...progress,
     calibrationIndex: nextCalibrationIndex,
     calibrationCompleted: progress.calibrationCompleted || nextCalibrationIndex >= skillIds.length,
     mastery: { ...progress.mastery, [attempt.skillId]: nextScore },
     recentAttempts: [...progress.recentAttempts, attempt].slice(-80),
     recentSeeds: [...progress.recentSeeds, attempt.seed].slice(-40)
-  };
+  }, {
+    type: "answer",
+    questionId: attempt.questionId,
+    parseable: true,
+    correct: attempt.correct,
+    solutionRevealed: attempt.solutionRevealed
+  });
 }
 
 export function setPreferredSkill(progress: LocalProgressV1, skillId: SkillId | null): LocalProgressV1 {

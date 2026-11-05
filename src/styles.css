@@ -52,6 +52,13 @@ a {
   color: inherit;
 }
 
+a[href],
+button:enabled,
+select:enabled,
+summary {
+  cursor: pointer;
+}
+
 button,
 a,
 select,
@@ -127,6 +134,10 @@ math-field {
 .site-header nav a.active {
   color: var(--ink);
   border-bottom-color: var(--lilac-strong);
+}
+
+.site-header nav a:active {
+  background: var(--lilac);
 }
 
 .site-footer {
@@ -404,6 +415,88 @@ math-field.preview-equation {
   padding: 0.6rem 2rem 0.6rem 0.7rem;
 }
 
+.practice-rewards,
+.reward-summary {
+  display: grid;
+  margin: 0;
+}
+
+.practice-rewards {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.75rem;
+  border-top: 1px solid var(--rule);
+  padding-top: 1rem;
+}
+
+.practice-rewards > div,
+.reward-summary > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.practice-rewards dt,
+.reward-summary dt {
+  color: var(--muted-ink);
+  font-size: 0.88rem;
+}
+
+.practice-rewards dd,
+.reward-summary dd {
+  margin: 0;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.practice-rewards dd {
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.points-help {
+  margin-top: 0.75rem;
+  color: var(--muted-ink);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.points-help summary {
+  width: fit-content;
+  max-width: 100%;
+  min-height: 44px;
+  padding-block: 0.65rem;
+  cursor: pointer;
+  color: var(--lilac-deep);
+  text-decoration: underline;
+  text-underline-offset: 0.2rem;
+}
+
+.points-help summary:hover {
+  color: var(--ink);
+}
+
+.points-help summary:active {
+  text-decoration-thickness: 2px;
+}
+
+.points-help p {
+  max-width: 65ch;
+  margin-bottom: 0.75rem;
+}
+
+.points-feedback {
+  margin-top: 0.35rem;
+  font-weight: 600;
+}
+
+.solution-points-note {
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
 .problem-sheet {
   min-width: 0;
   padding: clamp(1.4rem, 4vw, 3.2rem);
@@ -462,8 +555,7 @@ math-field.math-answer-field {
   width: 100%;
   max-width: 100%;
   min-height: 4.5rem;
-  display: flex;
-  align-items: center;
+  display: block;
   border: 2px solid #625760;
   border-radius: 0.2rem;
   background: white;
@@ -476,6 +568,11 @@ math-field.math-answer-field {
 math-field.math-answer-field:focus-within {
   border-color: var(--focus);
   box-shadow: 0 0 0 3px rgba(106, 60, 113, 0.22);
+}
+
+math-field.math-answer-field::part(placeholder) {
+  color: var(--muted-ink);
+  font-size: clamp(0.875rem, 2vw, 1.25rem);
 }
 
 .syntax-help {
@@ -575,6 +672,12 @@ math-field.math-answer-field:focus-within {
   border-color: rgba(36, 33, 36, 0.6);
 }
 
+.note-action:disabled,
+.topic-select-label select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .worked-solution {
   margin-top: 1.5rem;
   border-top: 2px solid var(--lilac-deep);
@@ -591,6 +694,75 @@ math-field.math-answer-field:focus-within {
 
 .worked-solution li + li {
   margin-top: 0.8rem;
+}
+
+.changelog-page {
+  max-width: 60rem;
+  padding-block: clamp(2.5rem, 7vw, 6rem);
+}
+
+.changelog-heading {
+  max-width: 40rem;
+  margin-bottom: clamp(2rem, 5vw, 4rem);
+}
+
+.changelog-heading h1 {
+  margin-bottom: 1rem;
+}
+
+.changelog-heading p,
+.changelog-entry time {
+  color: var(--muted-ink);
+  line-height: 1.6;
+}
+
+.changelog-heading p {
+  font-size: 1.12rem;
+}
+
+.changelog-entries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.changelog-entry {
+  display: grid;
+  gap: 0.75rem;
+  padding-block: clamp(1.5rem, 4vw, 2.5rem);
+  border-top: 1px solid var(--rule);
+  overflow-wrap: anywhere;
+}
+
+.changelog-entry time {
+  font-size: 0.9rem;
+}
+
+.changelog-entry h2 {
+  margin-bottom: 0.8rem;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+}
+
+.changelog-entry p,
+.changelog-entry ul {
+  max-width: 60ch;
+  line-height: 1.65;
+}
+
+.changelog-entry ul {
+  margin-bottom: 0;
+  padding-left: 1.25rem;
+}
+
+.changelog-entry li + li {
+  margin-top: 0.5rem;
+}
+
+@media (min-width: 48rem) {
+  .changelog-entry {
+    grid-template-columns: 10rem minmax(0, 1fr);
+    gap: 2rem;
+  }
 }
 
 .progress-page {
@@ -617,6 +789,28 @@ math-field.math-answer-field:focus-within {
   padding: 2rem;
   border: 1px solid #6f656d;
   background: var(--paper-bright);
+}
+
+.progress-rewards {
+  margin-bottom: 2rem;
+}
+
+.reward-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-block: 1px solid var(--rule);
+}
+
+.reward-summary > div {
+  padding: clamp(1rem, 3vw, 2rem);
+}
+
+.reward-summary > div + div {
+  border-left: 1px solid var(--rule);
+}
+
+.reward-summary dd {
+  font-family: "Source Serif 4", serif;
+  font-size: clamp(1.8rem, 4vw, 3rem);
 }
 
 .record-summary {
@@ -891,6 +1085,10 @@ math-field.math-answer-field:focus-within {
     overflow-x: auto;
   }
 
+  math-field.math-answer-field {
+    padding-inline: 0.65rem;
+  }
+
   .problem-actions {
     display: grid;
   }
@@ -906,6 +1104,15 @@ math-field.math-answer-field:focus-within {
 
   .record-summary {
     grid-template-columns: 1fr;
+  }
+
+  .reward-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .reward-summary > div + div {
+    border-left: 0;
+    border-top: 1px solid var(--rule);
   }
 
   .record-summary > div + div {
@@ -939,6 +1146,28 @@ math-field.math-answer-field:focus-within {
   }
 }
 
+@media (max-width: 32rem) {
+  .site-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.25rem;
+    padding-top: 0.5rem;
+  }
+
+  .site-header .wordmark {
+    align-self: flex-start;
+  }
+
+  .site-header nav {
+    flex-wrap: wrap;
+  }
+
+  .site-header nav a {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -947,6 +1176,23 @@ math-field.math-answer-field:focus-within {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+}
+
+@media (pointer: coarse) {
+  math-field.math-answer-field::part(menu-toggle),
+  math-field.math-answer-field::part(virtual-keyboard-toggle) {
+    box-sizing: border-box;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    padding: 8px;
+  }
+}
+
+@media (max-width: 21rem) and (pointer: coarse) {
+  math-field.math-answer-field::part(placeholder) {
+    font-size: 0.75rem;
   }
 }
 

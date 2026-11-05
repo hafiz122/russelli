@@ -13,7 +13,8 @@ export default defineConfig({
       input: {
         home: resolve(projectDirectory, "index.html"),
         practice: resolve(projectDirectory, "practice/index.html"),
-        progress: resolve(projectDirectory, "progress/index.html")
+        progress: resolve(projectDirectory, "progress/index.html"),
+        changelog: resolve(projectDirectory, "changelog/index.html")
       }
     }
   },

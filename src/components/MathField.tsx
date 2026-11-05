@@ -11,10 +11,11 @@ interface MathAnswerInputProps {
   onChange: (latex: string) => void;
   onSubmit: () => void;
   disabled?: boolean;
+  readOnly?: boolean;
   label: string;
 }
 
-export function MathAnswerInput({ value, onChange, onSubmit, disabled = false, label }: MathAnswerInputProps) {
+export function MathAnswerInput({ value, onChange, onSubmit, disabled = false, readOnly = false, label }: MathAnswerInputProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const fieldRef = useRef<MathfieldElement | null>(null);
   const onChangeRef = useRef(onChange);
@@ -67,6 +68,10 @@ export function MathAnswerInput({ value, onChange, onSubmit, disabled = false, l
   useEffect(() => {
     if (fieldRef.current) fieldRef.current.disabled = disabled;
   }, [disabled]);
+
+  useEffect(() => {
+    if (fieldRef.current) fieldRef.current.readOnly = readOnly;
+  }, [readOnly]);
 
   return <div ref={hostRef} className="math-answer-host" />;
 }

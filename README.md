@@ -15,6 +15,14 @@ Live site: [hafiz122.github.io/russelli](https://hafiz122.github.io/russelli/)
 
 The adaptive queue considers mastery, how recently a topic appeared, and prerequisite readiness. Difficulty moves between easy, medium, and hard as mastery changes. First-attempt success increases mastery more than success after retries or hints; incorrect checks and skips reduce it.
 
+### Points and streaks
+
+Each accepted answer earns **10 points** and adds one to your correct-answer streak. Every fifth answer in a streak earns **10 extra points**: a streak of five earns 60 points in total, and a streak of ten earns 120. Calibration and adaptive practice use the same rules at every difficulty.
+
+A mistake or skip resets the current streak, while your points and best streak remain. A correct retry earns points and starts a new streak. Hints do not affect rewards. Showing the worked solution before acceptance resets the streak and makes that question ineligible for points or streak advancement; viewing it after acceptance changes nothing. Incomplete input has no effect, and repeated submissions cannot award the same question twice.
+
+Practice shows your points and current streak beside the problem. Progress also shows your best streak. Open **How points work** on either page for the rules. Streaks persist across visits and topic changes, with no daily deadline. A displayed problem and its difficulty stay fixed until you load or skip to the next question.
+
 ### Topics and answer formats
 
 | Topic | Current practice |
@@ -37,11 +45,13 @@ Follow each problem's answer instructions:
 
 ### Local progress
 
-The application runs entirely in the browser, with no account or backend service. It saves calibration state, mastery scores, topic preference, recent attempts, and recent seeds in `localStorage` under `russelli.progress.v1`.
+The application runs entirely in the browser, with no account or backend service. It saves calibration state, mastery scores, topic preference, recent attempts, recent seeds, cumulative points, current and best streaks, and the current question's reward status in `localStorage` under `russelli.progress.v1`. Older records retain their learning history and start with zero rewards; historical answers do not receive points retroactively. Invalid reward fields fall back to safe defaults without removing valid learning history.
 
-The record retains up to 80 attempts and 40 recent seeds; the progress page displays the latest six checks. Progress belongs to the browser profile and site origin, so local development and the live site have separate records. It does not sync across browsers or devices. Clearing site data or confirming a reset removes the record. If saved progress cannot be read, the app starts a fresh record and displays a recovery notice.
+On the same browser profile and site origin, the app also reads the legacy `nurkh.progress.v1` key when no current record exists, preserving progress saved before the rename. Subsequent saves use `russelli.progress.v1`; a reset removes the legacy record and saves the cleared current record with a new reset identifier.
 
-On the same browser profile and site origin, the app also reads the legacy `nurkh.progress.v1` key when no current record exists, preserving progress saved before the rename. Subsequent saves use `russelli.progress.v1`; a reset clears both keys.
+The record retains up to 80 attempts and 40 recent seeds; the progress page displays the latest six checks. Cumulative points and streaks are stored separately from these limits. Progress belongs to the browser profile and site origin, so local development and the live site have separate records. It does not sync across browsers or devices. Clearing site data removes the record. Confirming a reset clears learning history, points, and streaks while retaining a reset identifier that prevents stale tabs from restoring them. If saved progress cannot be read, the app starts a fresh record and displays a recovery notice.
+
+Open tabs share progress updates. Writes use the browser's Web Locks API to read and update the latest saved record in order, including when answers arrive simultaneously. Resetting also starts a fresh question in other practice tabs; an old queued submission cannot add data to the new record. Safe saving requires a browser with Web Locks support over HTTPS or localhost. If a save fails, the app shows an error and leaves the answer available to retry rather than accepting it without saving.
 
 ## Local development
 
@@ -77,8 +87,13 @@ npm run preview
 | `/` | Introduction and topic index |
 | `/practice/` | Calibration, adaptive practice, and answer checking |
 | `/progress/` | Local readiness scores, recent checks, and reset controls |
+| `/changelog/` | Dated posts about features and fixes, newest first |
 
 Topic links use the skill ID as a query parameter, for example `/practice/?topic=functions`. The IDs are defined in [src/data/skills.ts](src/data/skills.ts).
+
+### Posting updates
+
+Add an entry at the top of the `changelog` array in [src/data/changelog.ts](src/data/changelog.ts), with a unique `id`, a `YYYY-MM-DD` date, a title, a short summary, and a list of changes. Keep entries newest first and describe changes that are available in that release. Build and deploy the site to publish the post; posts are shared site content, not browser-local progress.
 
 ## Verification
 
@@ -89,9 +104,9 @@ npm run test:e2e
 npm run build
 ```
 
-The unit suite covers answer equivalence, answer-form constraints, calibration, mastery updates, and local-storage compatibility and recovery. Generator tests check reproducibility and acceptance of the generated answer for 1,000 seeds per topic and difficulty: 24,000 combinations across eight topics and three difficulty levels. Additional regressions check rational-equation domain restrictions and worked solutions with negative function inputs.
+The unit suite covers answer equivalence, answer-form constraints, calibration, mastery updates, scoring milestones, reward eligibility, duplicate awards, local-storage compatibility and recovery, serialized updates, and rejection of writes from before a reset. Generator tests check reproducibility and acceptance of the generated answer for 1,000 seeds per topic and difficulty: 24,000 combinations across eight topics and three difficulty levels. Additional regressions check rational-equation domain restrictions and worked solutions with negative function inputs.
 
-Playwright runs desktop Chrome and Pixel 7 browser profiles. Its tests cover retries, hints, worked solutions, progress navigation, topic selection, MathLive input, interval handling, and accepted-answer feedback. It also checks serious or critical accessibility violations on the home page, practice-page reflow at several widths, control sizes, and reduced motion. The test configuration starts its own Vite server at `http://127.0.0.1:4173`; you do not need to start one separately.
+Playwright runs desktop Chrome and Pixel 7 browser profiles. Its tests cover retries, hints, worked solutions, progress navigation, topic selection, MathLive input, interval handling, and accepted-answer feedback. Reward tests cover milestone bonuses, duplicate Enter submissions, persistence, resets, rule disclosures, and fixed problems across difficulty thresholds. Multi-tab regressions cover concurrent answers, delayed storage notifications, reset propagation, stale submissions after reset, solution handling, and retrying a failed save. Accessibility checks cover the home, practice, and progress pages; layout checks include large reward counts, widths from 320 to 1280px, 200% text sizing, control sizes, keyboard focus, and reduced motion. The test configuration starts its own Vite server at `http://127.0.0.1:4173`; you do not need to start one separately.
 
 ## Deployment
 
@@ -108,7 +123,7 @@ VITE_BASE_PATH=/russelli/ npm run preview
 
 Open the preview URL with `/russelli/` appended. `VITE_BASE_PATH` defaults to `/`; set it to the deployment subdirectory, including leading and trailing slashes, when hosting under another path. Build again after changing it.
 
-Vite emits separate HTML entry points for the home, practice, and progress pages. Other static hosts should publish the full `dist/` directory and serve `practice/index.html` and `progress/index.html` at their directory URLs.
+Vite emits separate HTML entry points for the home, practice, progress, and changelog pages. Other static hosts should publish the full `dist/` directory and serve `practice/index.html`, `progress/index.html`, and `changelog/index.html` at their directory URLs.
 
 ## Code structure
 
@@ -124,6 +139,7 @@ The stack is React and TypeScript with Vite, MathLive for mathematical input and
 | `src/math/rng.ts`, `src/math/format.ts` | Deterministic random values and math formatting |
 | `src/math/validator.ts` | Parsing, equivalence checks, and required answer forms |
 | `src/state/adaptive.ts` | Topic selection, difficulty, mastery, and attempt recording |
+| `src/state/rewards.ts` | Points, streaks, reward eligibility, and duplicate-award protection |
 | `src/state/storage.ts` | Versioned browser storage, recovery, and reset |
 | `src/styles.css` | Paper-and-ink theme and responsive layout |
 | `tests/` | Generator, validator, progress, and browser tests |

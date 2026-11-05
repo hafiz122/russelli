@@ -1,8 +1,16 @@
 import { skillIds } from "../data/skills";
-import type { Attempt, LocalProgressV1, SkillId } from "../types";
+import type { Attempt, LocalProgressV1, QuestionReward, SkillId } from "../types";
 
-const STORAGE_KEY = "russelli.progress.v1";
+export const STORAGE_KEY = "russelli.progress.v1";
 const LEGACY_STORAGE_KEY = "nurkh.progress.v1";
+
+export interface ProgressCommit {
+  previous: LocalProgressV1;
+  progress: LocalProgressV1;
+  applied: boolean;
+}
+
+export type ProgressUpdate = (current: LocalProgressV1) => LocalProgressV1;
 
 function defaultMastery(): Record<SkillId, number> {
   return Object.fromEntries(skillIds.map((id) => [id, 0.35])) as Record<SkillId, number>;
@@ -11,12 +19,17 @@ function defaultMastery(): Record<SkillId, number> {
 export function createDefaultProgress(): LocalProgressV1 {
   return {
     schemaVersion: 1,
+    resetId: "initial",
     calibrationCompleted: false,
     calibrationIndex: 0,
     mastery: defaultMastery(),
     recentAttempts: [],
     recentSeeds: [],
-    preferredSkill: null
+    preferredSkill: null,
+    totalPoints: 0,
+    currentStreak: 0,
+    bestStreak: 0,
+    rewardQuestion: null
   };
 }
 
@@ -39,6 +52,19 @@ function isAttempt(value: unknown): value is Attempt {
     typeof attempt.timestamp === "string" && Number.isFinite(Date.parse(attempt.timestamp));
 }
 
+function rewardCount(value: unknown): number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
+}
+
+function questionReward(value: unknown): QuestionReward | null {
+  if (typeof value !== "object" || value === null) return null;
+  const candidate = value as Partial<QuestionReward>;
+  if (typeof candidate.questionId !== "string" || candidate.questionId.length === 0) return null;
+  if (candidate.status !== "eligible" && candidate.status !== "awarded" &&
+      candidate.status !== "solution_revealed" && candidate.status !== "skipped") return null;
+  return { questionId: candidate.questionId, status: candidate.status };
+}
+
 export function loadProgress(): { progress: LocalProgressV1; recovered: boolean } {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY) ?? window.localStorage.getItem(LEGACY_STORAGE_KEY);
@@ -49,6 +75,7 @@ export function loadProgress(): { progress: LocalProgressV1; recovered: boolean 
     }
 
     const base = createDefaultProgress();
+    base.resetId = typeof value.resetId === "string" && value.resetId.length > 0 ? value.resetId : base.resetId;
     for (const id of skillIds) {
       const score = value.mastery[id];
       if (typeof score === "number" && Number.isFinite(score)) {
@@ -63,6 +90,10 @@ export function loadProgress(): { progress: LocalProgressV1; recovered: boolean 
       ? value.recentSeeds.filter((seed) => Number.isInteger(seed)).slice(-40)
       : [];
     base.preferredSkill = isSkillId(value.preferredSkill) ? value.preferredSkill : null;
+    base.totalPoints = rewardCount(value.totalPoints);
+    base.currentStreak = rewardCount(value.currentStreak);
+    base.bestStreak = Math.max(base.currentStreak, rewardCount(value.bestStreak));
+    base.rewardQuestion = questionReward(value.rewardQuestion);
     return { progress: base, recovered: false };
   } catch {
     return { progress: createDefaultProgress(), recovered: true };
@@ -74,8 +105,28 @@ export function saveProgress(progress: LocalProgressV1): void {
 }
 
 export function clearProgress(): LocalProgressV1 {
-  window.localStorage.removeItem(STORAGE_KEY);
+  const progress = { ...createDefaultProgress(), resetId: crypto.randomUUID() };
+  saveProgress(progress);
   window.localStorage.removeItem(LEGACY_STORAGE_KEY);
-  return createDefaultProgress();
+  return progress;
+}
+
+async function withProgressLock<T>(action: () => T): Promise<T> {
+  if (!navigator.locks) throw new Error("This browser cannot safely coordinate saved progress across tabs.");
+  return navigator.locks.request(STORAGE_KEY, action);
+}
+
+export function commitProgress(expectedResetId: string, update: ProgressUpdate): Promise<ProgressCommit> {
+  return withProgressLock(() => {
+    const previous = loadProgress().progress;
+    if (previous.resetId !== expectedResetId) return { previous, progress: previous, applied: false };
+    const progress = update(previous);
+    saveProgress(progress);
+    return { previous, progress, applied: true };
+  });
+}
+
+export function resetStoredProgress(): Promise<LocalProgressV1> {
+  return withProgressLock(clearProgress);
 }
 

@@ -110,9 +110,11 @@ describe("local progress", () => {
     const progress = recordAttempt(createDefaultProgress(), attempt());
     window.localStorage.setItem("nurkh.progress.v1", JSON.stringify(progress));
     window.localStorage.setItem("russelli.progress.v1", JSON.stringify(progress));
-    expect(clearProgress()).toEqual(createDefaultProgress());
+    const reset = clearProgress();
+    expect(reset).toEqual({ ...createDefaultProgress(), resetId: reset.resetId });
+    expect(reset.resetId).not.toBe(progress.resetId);
     expect(window.localStorage.getItem("nurkh.progress.v1")).toBeNull();
-    expect(window.localStorage.getItem("russelli.progress.v1")).toBeNull();
-    expect(loadProgress()).toEqual({ progress: createDefaultProgress(), recovered: false });
+    expect(JSON.parse(window.localStorage.getItem("russelli.progress.v1")!)).toEqual(reset);
+    expect(loadProgress()).toEqual({ progress: reset, recovered: false });
   });
 });

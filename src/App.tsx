@@ -1,25 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MathAnswerInput, StaticMath } from "./components/MathField";
 import { getSkill, skillIds, skills } from "./data/skills";
+import { changelog } from "./data/changelog";
 import { generateQuestion } from "./math/generators";
 import { isParseableAnswer, validateAnswer } from "./math/validator";
 import { chooseSkill, difficultyFor, nextSeed, recordAttempt, setPreferredSkill } from "./state/adaptive";
-import { clearProgress, loadProgress, saveProgress } from "./state/storage";
+import { commitProgress, loadProgress, resetStoredProgress, STORAGE_KEY, type ProgressCommit, type ProgressUpdate } from "./state/storage";
+import { applyRewardEvent } from "./state/rewards";
 import type { Attempt, LocalProgressV1, SkillId, ValidationResult } from "./types";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+type UpdateProgress = (update: ProgressUpdate) => Promise<ProgressCommit | null>;
 
 function siteHref(path: string): string {
   return `${basePath}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-function currentPath(): "home" | "practice" | "progress" {
+function currentPath(): "home" | "practice" | "progress" | "changelog" {
   const pathname = basePath && window.location.pathname.startsWith(`${basePath}/`)
     ? window.location.pathname.slice(basePath.length)
     : window.location.pathname;
   const path = pathname.replace(/\/$/, "") || "/";
   if (path === "/practice") return "practice";
   if (path === "/progress") return "progress";
+  if (path === "/changelog") return "changelog";
   return "home";
 }
 
@@ -32,6 +36,7 @@ function SiteShell({ children, route }: { children: React.ReactNode; route: Retu
         <nav aria-label="Primary navigation">
           <a className={route === "practice" ? "active" : ""} href={siteHref("/practice/")}>Practice</a>
           <a className={route === "progress" ? "active" : ""} href={siteHref("/progress/")}>Progress</a>
+          <a className={route === "changelog" ? "active" : ""} aria-current={route === "changelog" ? "page" : undefined} href={siteHref("/changelog/")}>Changelog</a>
         </nav>
       </header>
       <main id="main-content">{children}</main>
@@ -49,6 +54,17 @@ function RecoveryNotice({ visible }: { visible: boolean }) {
     <div className="system-notice" role="status">
       Saved progress could not be read, so russelli. started a fresh local record.
     </div>
+  );
+}
+
+function PointsHelp() {
+  return (
+    <details className="points-help">
+      <summary>How points work</summary>
+      <p>Earn 10 points for each accepted answer, with 10 extra for every fifth answer in a streak. A mistake or skip resets your streak. A correct retry starts it again. Hints are welcome.</p>
+      <p>Showing a worked solution before your answer is accepted resets your streak and makes that question ineligible for points. Viewing it after acceptance changes nothing.</p>
+      <p>Points and streaks stay on this device, across topics and visits. Calibration answers count too. Resetting local progress clears them.</p>
+    </details>
   );
 }
 
@@ -101,25 +117,24 @@ function HomePage({ progress }: { progress: LocalProgressV1 }) {
   );
 }
 
-function PracticePage({ progress, updateProgress }: { progress: LocalProgressV1; updateProgress: (value: LocalProgressV1) => void }) {
+function PracticePage({ progress, updateProgress, saving }: { progress: LocalProgressV1; updateProgress: UpdateProgress; saving: boolean }) {
   const querySkill = new URLSearchParams(window.location.search).get("topic") as SkillId | null;
   const validQuerySkill = querySkill && skillIds.includes(querySkill) ? querySkill : null;
-  const [selectedSkill, setSelectedSkill] = useState<SkillId>(() => validQuerySkill ?? chooseSkill(progress));
+  const [question, setQuestion] = useState(() => {
+    const skillId = validQuerySkill ?? chooseSkill(progress);
+    return generateQuestion(skillId, nextSeed(progress), difficultyFor(progress.mastery[skillId]));
+  });
   const [questionContext, setQuestionContext] = useState(() => ({
     calibration: !progress.calibrationCompleted,
     calibrationNumber: Math.min(progress.calibrationIndex + 1, skillIds.length)
   }));
-  const [seed, setSeed] = useState(() => nextSeed(progress));
   const [answer, setAnswer] = useState("");
   const [attemptCount, setAttemptCount] = useState(0);
   const [feedback, setFeedback] = useState<ValidationResult | null>(null);
   const [hintCount, setHintCount] = useState(0);
   const [solutionVisible, setSolutionVisible] = useState(false);
-  const [difficulty, setDifficulty] = useState(() => difficultyFor(progress.mastery[selectedSkill]));
-  const question = useMemo(
-    () => generateQuestion(selectedSkill, seed, difficulty),
-    [difficulty, seed, selectedSkill]
-  );
+  const [earnedPoints, setEarnedPoints] = useState<number | null>(null);
+  const acceptedRef = useRef(false);
   const parseable = isParseableAnswer(question, answer);
   const skill = getSkill(question.skillId);
 
@@ -138,15 +153,24 @@ function PracticePage({ progress, updateProgress }: { progress: LocalProgressV1;
     };
   }
 
-  function submitAnswer() {
-    if (!parseable || feedback?.correct) return;
+  async function submitAnswer() {
+    if (!parseable || acceptedRef.current || saving) return;
     const result = validateAnswer(question, answer);
+    if (!result.parseable) return;
+    acceptedRef.current = result.correct;
+    const attempt = makeAttempt(result);
+    const commit = await updateProgress((current) => recordAttempt(current, attempt));
+    if (!commit?.applied) {
+      acceptedRef.current = false;
+      return;
+    }
     setAttemptCount((count) => count + 1);
     setFeedback(result);
-    updateProgress(recordAttempt(progress, makeAttempt(result)));
+    setEarnedPoints(result.correct ? commit.progress.totalPoints - commit.previous.totalPoints : null);
   }
 
-  function loadNext(recordSkip: boolean) {
+  async function loadNext(recordSkip: boolean) {
+    if (saving) return;
     let nextProgress = progress;
     if (recordSkip && !feedback?.correct) {
       const skippedResult: ValidationResult = {
@@ -156,27 +180,40 @@ function PracticePage({ progress, updateProgress }: { progress: LocalProgressV1;
         feedback: "Question skipped.",
         retryEligible: false
       };
-      nextProgress = recordAttempt(progress, makeAttempt(skippedResult, solutionVisible));
-      updateProgress(nextProgress);
+      const attempt = makeAttempt(skippedResult, solutionVisible);
+      const commit = await updateProgress((current) => applyRewardEvent(recordAttempt(current, attempt), {
+        type: "skip", questionId: question.id
+      }));
+      if (!commit?.applied) return;
+      nextProgress = commit.progress;
     }
     const nextSkill = validQuerySkill ?? chooseSkill(nextProgress);
-    setSelectedSkill(nextSkill);
-    setDifficulty(difficultyFor(nextProgress.mastery[nextSkill]));
+    setQuestion(generateQuestion(nextSkill, nextSeed(nextProgress, Date.now() + attemptCount + 1), difficultyFor(nextProgress.mastery[nextSkill])));
     setQuestionContext({
       calibration: !nextProgress.calibrationCompleted,
       calibrationNumber: Math.min(nextProgress.calibrationIndex + 1, skillIds.length)
     });
-    setSeed(nextSeed(nextProgress, Date.now() + attemptCount + 1));
     setAnswer("");
     setAttemptCount(0);
     setFeedback(null);
     setHintCount(0);
     setSolutionVisible(false);
+    setEarnedPoints(null);
+    acceptedRef.current = false;
   }
 
-  function chooseTopic(skillId: SkillId | null) {
-    const next = setPreferredSkill(progress, skillId);
-    updateProgress(next);
+  async function revealSolution() {
+    if (acceptedRef.current) {
+      setSolutionVisible(true);
+      return;
+    }
+    const commit = await updateProgress((current) => applyRewardEvent(current, { type: "reveal_solution", questionId: question.id }));
+    if (commit?.applied) setSolutionVisible(true);
+  }
+
+  async function chooseTopic(skillId: SkillId | null) {
+    const commit = await updateProgress((current) => setPreferredSkill(current, skillId));
+    if (!commit?.applied) return;
     window.location.href = skillId ? siteHref(`/practice/?topic=${skillId}`) : siteHref("/practice/");
   }
 
@@ -195,6 +232,7 @@ function PracticePage({ progress, updateProgress }: { progress: LocalProgressV1;
         <label className="topic-select-label">
           Practice focus
           <select
+            disabled={saving}
             value={validQuerySkill ?? progress.preferredSkill ?? "adaptive"}
             onChange={(event) => chooseTopic(event.target.value === "adaptive" ? null : (event.target.value as SkillId))}
           >
@@ -202,9 +240,14 @@ function PracticePage({ progress, updateProgress }: { progress: LocalProgressV1;
             {skills.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
           </select>
         </label>
+        <dl className="practice-rewards" aria-label="Practice rewards">
+          <div><dt>Points</dt><dd>{progress.totalPoints}</dd></div>
+          <div><dt>Current streak</dt><dd>{progress.currentStreak}</dd></div>
+        </dl>
+        <PointsHelp />
       </section>
 
-      <section className="problem-sheet" aria-labelledby="problem-instruction">
+      <section className="problem-sheet" aria-labelledby="problem-instruction" aria-busy={saving}>
         <div className="problem-heading">
           <span className="difficulty-label">{question.difficulty}</span>
           <span className="problem-code">Problem {question.seed.toString(36).toUpperCase()}</span>
@@ -223,6 +266,7 @@ function PracticePage({ progress, updateProgress }: { progress: LocalProgressV1;
             }}
             onSubmit={submitAnswer}
             disabled={Boolean(feedback?.correct)}
+            readOnly={saving}
             label="Final algebra answer"
           />
           <details className="syntax-help">
@@ -235,16 +279,27 @@ function PracticePage({ progress, updateProgress }: { progress: LocalProgressV1;
           <div className={`feedback ${feedback.correct ? "correct" : "incorrect"}`} role="status" aria-live="polite">
             <strong>{feedback.correct ? "Answer accepted." : "Check your answer."}</strong>
             <span>{feedback.feedback}</span>
+            {feedback.correct && earnedPoints !== null && (
+              <span className="points-feedback">
+                {earnedPoints > 10
+                  ? `+${earnedPoints} points: 10 for your answer + 10 streak bonus.`
+                  : earnedPoints > 0
+                    ? `+${earnedPoints} points. ${progress.currentStreak} in a row.`
+                    : solutionVisible || progress.rewardQuestion?.status === "solution_revealed"
+                      ? "No points for this question because its worked solution was shown."
+                      : "No additional points for this question."}
+              </span>
+            )}
           </div>
         )}
 
         <div className="problem-actions">
           {feedback?.correct ? (
-            <button className="button primary" type="button" onClick={() => loadNext(false)}>Load the next question</button>
+            <button className="button primary" type="button" onClick={() => loadNext(false)} disabled={saving}>Load the next question</button>
           ) : (
             <>
-              <button className="button primary" type="button" onClick={submitAnswer} disabled={!parseable}>Check answer</button>
-              <button className="button quiet" type="button" onClick={() => loadNext(true)}>Skip this question</button>
+              <button className="button primary" type="button" onClick={submitAnswer} disabled={!parseable || saving}>Check answer</button>
+              <button className="button quiet" type="button" onClick={() => loadNext(true)} disabled={saving}>Skip this question</button>
             </>
           )}
         </div>
@@ -263,12 +318,13 @@ function PracticePage({ progress, updateProgress }: { progress: LocalProgressV1;
           </ol>
         )}
         {hintCount < question.hints.length && !feedback?.correct && (
-          <button className="note-action" type="button" onClick={() => setHintCount((count) => count + 1)}>Reveal the next hint</button>
+          <button className="note-action" type="button" onClick={() => setHintCount((count) => count + 1)} disabled={saving}>Reveal the next hint</button>
         )}
         {!solutionVisible ? (
-          <button className="note-action secondary" type="button" onClick={() => setSolutionVisible(true)}>Show worked solution</button>
+          <button className="note-action secondary" type="button" onClick={revealSolution} disabled={saving}>Show worked solution</button>
         ) : (
           <div className="worked-solution">
+            {!feedback?.correct && <p className="solution-points-note" role="status">No points for this question. Your streak has reset; the next question can start a new one.</p>}
             <h2>Worked solution</h2>
             <ol>
               {question.workedSolution.map((step, index) => (
@@ -282,14 +338,46 @@ function PracticePage({ progress, updateProgress }: { progress: LocalProgressV1;
   );
 }
 
-function ProgressPage({ progress, updateProgress }: { progress: LocalProgressV1; updateProgress: (value: LocalProgressV1) => void }) {
+function ChangelogPage() {
+  const dateFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+
+  return (
+    <div className="changelog-page page-shell">
+      <header className="changelog-heading">
+        <h1>Changelog</h1>
+        <p>Updates to russelli., from new practice features to fixes in answer checking. Latest first.</p>
+      </header>
+      {changelog.length === 0 ? (
+        <p>No updates posted yet. Check back here for changes to russelli.</p>
+      ) : (
+        <ol className="changelog-entries" aria-label="Updates, newest first">
+          {changelog.map((entry) => (
+            <li key={entry.id}>
+              <article className="changelog-entry" aria-labelledby={`update-${entry.id}`}>
+                <time dateTime={entry.date}>{dateFormat.format(new Date(`${entry.date}T00:00:00Z`))}</time>
+                <div>
+                  <h2 id={`update-${entry.id}`}>{entry.title}</h2>
+                  <p>{entry.summary}</p>
+                  <ul>
+                    {entry.changes.map((change) => <li key={change}>{change}</li>)}
+                  </ul>
+                </div>
+              </article>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+function ProgressPage({ progress, resetProgress, saving }: { progress: LocalProgressV1; resetProgress: () => Promise<boolean>; saving: boolean }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const attempts = progress.recentAttempts;
   const correct = attempts.filter((attempt) => attempt.correct).length;
 
-  function reset() {
-    updateProgress(clearProgress());
-    dialogRef.current?.close();
+  async function reset() {
+    if (await resetProgress()) dialogRef.current?.close();
   }
 
   return (
@@ -298,6 +386,15 @@ function ProgressPage({ progress, updateProgress }: { progress: LocalProgressV1;
         <p className="plain-kicker">Stored on this device</p>
         <h1>Your algebra record</h1>
         <p>Mastery changes as you answer. Choose any topic when you want focused practice.</p>
+      </section>
+
+      <section className="progress-rewards" aria-label="Points and streaks">
+        <dl className="reward-summary">
+          <div><dt>Total points</dt><dd>{progress.totalPoints}</dd></div>
+          <div><dt>Current streak</dt><dd>{progress.currentStreak}</dd></div>
+          <div><dt>Best streak</dt><dd>{progress.bestStreak}</dd></div>
+        </dl>
+        <PointsHelp />
       </section>
 
       {attempts.length === 0 ? (
@@ -377,17 +474,17 @@ function ProgressPage({ progress, updateProgress }: { progress: LocalProgressV1;
       <section className="local-controls" aria-labelledby="local-title">
         <div>
           <h2 id="local-title">Local data</h2>
-          <p>Resetting removes the calibration and answer history from this browser.</p>
+          <p>Resetting removes calibration, answer history, points and streaks from this browser.</p>
         </div>
-        <button className="button danger" type="button" onClick={() => dialogRef.current?.showModal()}>Reset local progress</button>
+        <button className="button danger" type="button" onClick={() => dialogRef.current?.showModal()} disabled={saving}>Reset local progress</button>
       </section>
 
       <dialog ref={dialogRef} className="reset-dialog" onCancel={() => dialogRef.current?.close()}>
         <h2>Reset this progress record?</h2>
-        <p>This removes every answer and mastery score stored by russelli. on this device.</p>
+        <p>This removes every answer, mastery score, points and streaks stored by russelli. on this device.</p>
         <div>
-          <button className="button quiet" type="button" onClick={() => dialogRef.current?.close()}>Keep my progress</button>
-          <button className="button danger" type="button" onClick={reset}>Reset progress</button>
+          <button className="button quiet" type="button" onClick={() => dialogRef.current?.close()} disabled={saving}>Keep my progress</button>
+          <button className="button danger" type="button" onClick={reset} disabled={saving}>Reset progress</button>
         </div>
       </dialog>
     </div>
@@ -398,17 +495,55 @@ export default function App() {
   const route = currentPath();
   const initial = useMemo(() => loadProgress(), []);
   const [progress, setProgress] = useState(initial.progress);
+  const [saving, setSaving] = useState(false);
+  const [storageError, setStorageError] = useState<string | null>(null);
+  const savingRef = useRef(false);
 
   useEffect(() => {
-    saveProgress(progress);
-  }, [progress]);
+    const refresh = () => setProgress(loadProgress().progress);
+    const storageChanged = (event: StorageEvent) => {
+      if (event.storageArea === window.localStorage && (event.key === STORAGE_KEY || event.key === null)) refresh();
+    };
+    window.addEventListener("storage", storageChanged);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("pageshow", refresh);
+    refresh();
+    return () => {
+      window.removeEventListener("storage", storageChanged);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("pageshow", refresh);
+    };
+  }, []);
+
+  async function persist<T>(operation: () => Promise<T>): Promise<T | null> {
+    if (savingRef.current) return null;
+    savingRef.current = true;
+    setSaving(true);
+    setStorageError(null);
+    try {
+      const result = await operation();
+      setProgress(loadProgress().progress);
+      return result;
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : "Please try again.");
+      return null;
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  }
+
+  const updateProgress: UpdateProgress = (update) => persist(() => commitProgress(progress.resetId, update));
+  const resetProgress = async () => (await persist(resetStoredProgress)) !== null;
 
   return (
     <SiteShell route={route}>
       <RecoveryNotice visible={initial.recovered} />
+      {storageError && <div className="system-notice" role="alert">Progress could not be saved. {storageError}</div>}
       {route === "home" && <HomePage progress={progress} />}
-      {route === "practice" && <PracticePage progress={progress} updateProgress={setProgress} />}
-      {route === "progress" && <ProgressPage progress={progress} updateProgress={setProgress} />}
+      {route === "practice" && <PracticePage key={progress.resetId} progress={progress} updateProgress={updateProgress} saving={saving} />}
+      {route === "progress" && <ProgressPage progress={progress} resetProgress={resetProgress} saving={saving} />}
+      {route === "changelog" && <ChangelogPage />}
     </SiteShell>
   );
 }
