@@ -4,6 +4,37 @@ Paper-first algebra practice for college beginners. The site presents one proble
 
 Live site: [hafiz122.github.io/russelli](https://hafiz122.github.io/russelli/)
 
+## Screenshots
+
+Captured from the live site on 5 November 2026.
+
+The practice screen keeps the problem, final-answer field, and hints together.
+
+![Desktop practice screen with an algebra problem, final-answer field, and a revealed hint](docs/screenshots/practice.png)
+
+<details>
+<summary>Home page</summary>
+
+![Home page introducing paper-first practice and the eight algebra topics](docs/screenshots/home.png)
+
+</details>
+
+<details>
+<summary>Progress page</summary>
+
+This record shows one accepted answer submitted during the screenshot session.
+
+![Progress page with one accepted answer, topic readiness, and recent checks](docs/screenshots/progress.png)
+
+</details>
+
+<details>
+<summary>Mobile practice</summary>
+
+![Mobile practice screen with the problem, answer field, and hints stacked vertically](docs/screenshots/practice-mobile.png)
+
+</details>
+
 ## Using the site
 
 1. Open **Practice** to start or resume the eight-topic calibration.
