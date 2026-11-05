@@ -153,6 +153,38 @@ math-field {
   font-size: 0.9rem;
 }
 
+.footer-information,
+.footer-information nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.footer-information {
+  gap: 0.5rem 1.5rem;
+}
+
+.footer-information nav {
+  gap: 0.25rem;
+}
+
+.footer-information a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 0.5rem;
+  color: var(--ink);
+  text-underline-offset: 0.2rem;
+}
+
+.footer-information a:hover {
+  color: var(--lilac-deep);
+}
+
+.footer-information a:active {
+  background: var(--lilac);
+}
+
 .system-notice {
   width: min(100% - 2rem, 82rem);
   margin: 1rem auto 0;
@@ -708,6 +740,58 @@ math-field.math-answer-field::part(placeholder) {
   padding-block: clamp(2.5rem, 7vw, 6rem);
 }
 
+.legal-page {
+  max-width: 60rem;
+  padding-block: clamp(2.5rem, 7vw, 6rem);
+}
+
+.legal-heading {
+  max-width: 42rem;
+  margin-bottom: clamp(2.5rem, 5vw, 4rem);
+}
+
+.legal-heading h1 {
+  margin-bottom: 1rem;
+}
+
+.legal-heading > p:first-of-type {
+  font-size: 1.12rem;
+}
+
+.legal-date {
+  color: var(--muted-ink);
+  font-size: 0.9rem;
+}
+
+.legal-page section {
+  max-width: 72ch;
+  padding-block: clamp(1.5rem, 4vw, 2.5rem);
+  border-top: 1px solid var(--rule);
+}
+
+.legal-page section h2 {
+  margin-bottom: 0.8rem;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+}
+
+.legal-page section p {
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.legal-page section p:last-child {
+  margin-bottom: 0;
+}
+
+.legal-page section a {
+  color: var(--lilac-deep);
+  text-underline-offset: 0.2rem;
+}
+
+.legal-page section a:hover {
+  color: var(--ink);
+}
+
 .changelog-heading {
   max-width: 40rem;
   margin-bottom: clamp(2rem, 5vw, 4rem);
@@ -1046,6 +1130,11 @@ math-field.math-answer-field::part(placeholder) {
     padding-block: 1.2rem;
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .footer-information {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .home-layout,

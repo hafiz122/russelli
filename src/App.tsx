@@ -16,7 +16,7 @@ function siteHref(path: string): string {
   return `${basePath}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-function currentPath(): "home" | "practice" | "progress" | "changelog" {
+function currentPath(): "home" | "practice" | "progress" | "changelog" | "privacy" | "terms" {
   const pathname = basePath && window.location.pathname.startsWith(`${basePath}/`)
     ? window.location.pathname.slice(basePath.length)
     : window.location.pathname;
@@ -24,6 +24,8 @@ function currentPath(): "home" | "practice" | "progress" | "changelog" {
   if (path === "/practice") return "practice";
   if (path === "/progress") return "progress";
   if (path === "/changelog") return "changelog";
+  if (path === "/privacy") return "privacy";
+  if (path === "/terms") return "terms";
   return "home";
 }
 
@@ -42,7 +44,13 @@ function SiteShell({ children, route }: { children: React.ReactNode; route: Retu
       <main id="main-content">{children}</main>
       <footer className="site-footer">
         <span>Work it out by hand.</span>
-        <span>Your progress stays on this device.</span>
+        <div className="footer-information">
+          <span>Your progress stays on this device.</span>
+          <nav aria-label="Site information">
+            <a href={siteHref("/privacy/")}>Privacy</a>
+            <a href={siteHref("/terms/")}>Terms</a>
+          </nav>
+        </div>
       </footer>
     </>
   );
@@ -375,6 +383,72 @@ function ChangelogPage() {
   );
 }
 
+function PrivacyPage() {
+  return (
+    <article className="legal-page page-shell">
+      <header className="legal-heading">
+        <h1>Privacy notice</h1>
+        <p>How russelli. handles your algebra practice record and site visits.</p>
+        <p className="legal-date">Last updated <time dateTime="2026-11-05">5 November 2026</time></p>
+      </header>
+
+      <section aria-labelledby="privacy-local">
+        <h2 id="privacy-local">Your practice record</h2>
+        <p>Answers are checked in your browser. The site saves your submitted answers, check results, dates, topic readiness, question history, points, and streaks in your browser’s local storage so you can continue practicing. It does not send that record to us or sync it across devices.</p>
+        <p>The record keeps at most 80 recent attempts and 40 recent question seeds. Other progress, such as points and streaks, stays until you reset it or clear this site’s browser data. An older local record may be read to preserve progress from before the site was renamed.</p>
+      </section>
+
+      <section aria-labelledby="privacy-control">
+        <h2 id="privacy-control">Your controls</h2>
+        <p>Use <a href={siteHref("/progress/")}>Reset local progress</a> on the Progress page to clear your answers and scores in this browser. The site then keeps a fresh, empty local record to prevent another open tab from restoring the old one. Clearing this site’s data in your browser removes that record too.</p>
+      </section>
+
+      <section aria-labelledby="privacy-hosting">
+        <h2 id="privacy-hosting">Hosting and site visits</h2>
+        <p>GitHub Pages hosts the site. GitHub says it logs visitors’ IP addresses for security, whether or not they are signed in. See <a href="https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages">GitHub’s Pages documentation</a> and <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub’s privacy statement</a> for its handling of that information.</p>
+        <p>We do not currently use advertising or analytics tools on this site.</p>
+      </section>
+
+      <section aria-labelledby="privacy-contact">
+        <h2 id="privacy-contact">Questions</h2>
+        <p>For a question about this notice, email <a href="mailto:muhammadhafiz0150@gmail.com">muhammadhafiz0150@gmail.com</a>. If you write to us, we receive your email address and message and use them to reply. We will update this page if the site’s data practices change.</p>
+      </section>
+    </article>
+  );
+}
+
+function TermsPage() {
+  return (
+    <article className="legal-page page-shell">
+      <header className="legal-heading">
+        <h1>Terms of use</h1>
+        <p>A few ground rules for using russelli. to practice algebra.</p>
+        <p className="legal-date">Last updated <time dateTime="2026-11-05">5 November 2026</time></p>
+      </header>
+
+      <section aria-labelledby="terms-use">
+        <h2 id="terms-use">Study use</h2>
+        <p>russelli. offers free algebra questions, hints, and automated answer checking for study. Work through each problem on paper and enter your final mathematical answer. You may use the site for your own learning or in teaching.</p>
+      </section>
+
+      <section aria-labelledby="terms-checking">
+        <h2 id="terms-checking">Answer checking</h2>
+        <p>Automated checks and worked solutions can contain mistakes. Check important results independently or with a teacher. The site does not certify a learner’s ability or award academic credit.</p>
+      </section>
+
+      <section aria-labelledby="terms-progress">
+        <h2 id="terms-progress">Saved progress</h2>
+        <p>Progress is stored in this browser. It may be lost if you reset it, clear site data, switch browsers, or use another device. See the <a href={siteHref("/privacy/")}>privacy notice</a> for details.</p>
+      </section>
+
+      <section aria-labelledby="terms-changes">
+        <h2 id="terms-changes">Changes and contact</h2>
+        <p>We may change or stop the site and update these terms. The date above shows the latest version. For questions, email <a href="mailto:muhammadhafiz0150@gmail.com">muhammadhafiz0150@gmail.com</a>.</p>
+      </section>
+    </article>
+  );
+}
+
 function ProgressPage({ progress, resetProgress, saving }: { progress: LocalProgressV1; resetProgress: () => Promise<boolean>; saving: boolean }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const attempts = progress.recentAttempts;
@@ -548,6 +622,8 @@ export default function App() {
       {route === "practice" && <PracticePage key={progress.resetId} progress={progress} updateProgress={updateProgress} saving={saving} />}
       {route === "progress" && <ProgressPage progress={progress} resetProgress={resetProgress} saving={saving} />}
       {route === "changelog" && <ChangelogPage />}
+      {route === "privacy" && <PrivacyPage />}
+      {route === "terms" && <TermsPage />}
     </SiteShell>
   );
 }

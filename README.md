@@ -120,6 +120,8 @@ npm run preview
 | `/` | Introduction and topic index |
 | `/practice/` | Calibration, adaptive practice, and answer checking |
 | `/progress/` | Local readiness scores, recent checks, and reset controls |
+| `/privacy/` | How local progress and site visits are handled |
+| `/terms/` | Terms for study use and automated checking |
 | `/changelog/` | Dated posts about features and fixes, newest first |
 
 Topic links use the skill ID as a query parameter, for example `/practice/?topic=functions`. The IDs are defined in [src/data/skills.ts](src/data/skills.ts).
@@ -156,7 +158,7 @@ VITE_BASE_PATH=/russelli/ npm run preview
 
 Open the preview URL with `/russelli/` appended. `VITE_BASE_PATH` defaults to `/`; set it to the deployment subdirectory, including leading and trailing slashes, when hosting under another path. Build again after changing it.
 
-Vite emits separate HTML entry points for the home, practice, progress, and changelog pages. Other static hosts should publish the full `dist/` directory and serve `practice/index.html`, `progress/index.html`, and `changelog/index.html` at their directory URLs.
+Vite emits separate HTML entry points for the home, practice, progress, changelog, privacy, and terms pages. Other static hosts should publish the full `dist/` directory and serve each page's `index.html` at its directory URL.
 
 ## Code structure
 

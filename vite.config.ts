@@ -14,7 +14,9 @@ export default defineConfig({
         home: resolve(projectDirectory, "index.html"),
         practice: resolve(projectDirectory, "practice/index.html"),
         progress: resolve(projectDirectory, "progress/index.html"),
-        changelog: resolve(projectDirectory, "changelog/index.html")
+        changelog: resolve(projectDirectory, "changelog/index.html"),
+        privacy: resolve(projectDirectory, "privacy/index.html"),
+        terms: resolve(projectDirectory, "terms/index.html")
       }
     }
   },
