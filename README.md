@@ -53,6 +53,8 @@ The record retains up to 80 attempts and 40 recent seeds; the progress page disp
 
 Open tabs share progress updates. Writes use the browser's Web Locks API to read and update the latest saved record in order, including when answers arrive simultaneously. Resetting also starts a fresh question in other practice tabs; an old queued submission cannot add data to the new record. Safe saving requires a browser with Web Locks support over HTTPS or localhost. If a save fails, the app shows an error and leaves the answer available to retry rather than accepting it without saving.
 
+Each displayed problem has its own presentation ID for rewards, separate from its reproducible mathematical question ID. Identical seeded problems in different tabs therefore earn points independently. Calibration submissions retain the slot shown with their question: completing an older copy still updates mastery and rewards, but cannot consume a later calibration slot.
+
 ## Local development
 
 Use Node.js **22.13.0 or newer** and npm. Run these commands from the repository root:
