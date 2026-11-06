@@ -1,7 +1,25 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { generateQuestion } from "../../src/math/generators";
 import { createDefaultProgress } from "../../src/state/storage";
+
+async function selectSeed(page: Page, seed: number) {
+  await page.addInitScript((desiredSeed) => {
+    const original = crypto.getRandomValues.bind(crypto);
+    let draw = 0;
+    Object.defineProperty(crypto, "getRandomValues", {
+      configurable: true,
+      value: (array: Uint32Array<ArrayBuffer>) => {
+        if (array instanceof Uint32Array && array.length === 1 && draw < 18) {
+          array[0] = draw === 0 ? desiredSeed % 2 : draw <= 16 ? Math.floor((desiredSeed - 1) / 2) : 0;
+          draw += 1;
+          return array;
+        }
+        return original(array);
+      }
+    });
+  }, seed);
+}
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
@@ -74,9 +92,7 @@ test("accepts a decimal-equivalent interval in the answer field", async ({ page 
   const decimal = Number(fraction[1]) / Number(fraction[2]);
   const openingDelimiter = generated.answer.latex.startsWith("[") ? "[" : "(";
 
-  await page.addInitScript((fixedTime) => {
-    Date.now = () => fixedTime;
-  }, seed);
+  await selectSeed(page, seed);
   await page.goto("/practice/?topic=linear");
 
   const field = page.locator("math-field.math-answer-field");
@@ -92,9 +108,7 @@ test("accepts a decimal-equivalent interval in the answer field", async ({ page 
 });
 
 test("recognizes interval brackets typed into MathLive", async ({ page }) => {
-  await page.addInitScript(() => {
-    Date.now = () => 2;
-  });
+  await selectSeed(page, 2);
   await page.goto("/practice/?topic=linear");
 
   const field = page.locator("math-field.math-answer-field");
@@ -111,9 +125,7 @@ test("checks the interval MathLive commits through a change event", async ({ pag
   const seed = 2;
   const generated = generateQuestion("linear", seed, "easy");
 
-  await page.addInitScript((fixedTime) => {
-    Date.now = () => fixedTime;
-  }, seed);
+  await selectSeed(page, seed);
   await page.goto("/practice/?topic=linear");
 
   const field = page.locator("math-field.math-answer-field");
@@ -131,9 +143,7 @@ test("checks the interval MathLive commits through a change event", async ({ pag
 test("keeps accepted feedback with the current question until next", async ({ page }) => {
   const seed = 12_345;
   const answer = generateQuestion("expressions", seed, "easy").answer.latex;
-  await page.addInitScript((fixedTime) => {
-    Date.now = () => fixedTime;
-  }, seed);
+  await selectSeed(page, seed);
   await page.goto("/practice/");
 
   const field = page.locator("math-field.math-answer-field");
@@ -160,10 +170,10 @@ for (const scenario of [
     const seed = 2;
     const progress = createDefaultProgress();
     progress.mastery.linear = scenario.mastery;
-    await page.addInitScript(({ fixedTime, initialProgress }) => {
-      Date.now = () => fixedTime;
+    await selectSeed(page, seed);
+    await page.addInitScript((initialProgress) => {
       localStorage.setItem("russelli.progress.v1", JSON.stringify(initialProgress));
-    }, { fixedTime: seed, initialProgress: progress });
+    }, progress);
     await page.goto("/practice/?topic=linear");
 
     const problem = page.locator("math-field.problem-equation");

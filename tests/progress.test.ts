@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { chooseSkill, difficultyFor, recordAttempt, setPreferredSkill } from "../src/state/adaptive";
 import { clearProgress, createDefaultProgress, loadProgress, saveProgress } from "../src/state/storage";
-import type { Attempt } from "../src/types";
+import type { Attempt, RecentPresentation } from "../src/types";
 
 function attempt(overrides: Partial<Attempt> = {}): Attempt {
   return {
@@ -17,6 +17,20 @@ function attempt(overrides: Partial<Attempt> = {}): Attempt {
     solutionRevealed: false,
     timestamp: "2026-10-24T00:00:00.000Z",
     ...overrides
+  };
+}
+
+function presentation(index: number): RecentPresentation {
+  return {
+    presentationId: `presentation-${index}`,
+    questionId: `linear:easy:${index}`,
+    calibrationIndex: null,
+    seed: index,
+    skillId: "linear",
+    difficulty: "easy",
+    formId: "equation",
+    problemKey: `linear:equation:${index}`,
+    answerKey: `${index}`
   };
 }
 
@@ -69,6 +83,15 @@ describe("local progress", () => {
     expect(progress.recentAttempts).toHaveLength(3);
   });
 
+  it("keeps displayed-question history separate from answer retries", () => {
+    const shown = presentation(7);
+    let progress = { ...createDefaultProgress(), recentPresentations: [shown] };
+    progress = recordAttempt(progress, attempt({ correct: false }));
+    progress = recordAttempt(progress, attempt({ attemptCount: 2 }));
+    expect(progress.recentAttempts).toHaveLength(2);
+    expect(progress.recentPresentations).toEqual([shown]);
+  });
+
   it("discards malformed saved attempts while preserving valid history", () => {
     const progress = createDefaultProgress();
     const valid = attempt();
@@ -77,6 +100,20 @@ describe("local progress", () => {
       recentAttempts: [null, {}, { ...valid, skillId: "unknown" }, { ...valid, correct: "yes" }, valid]
     }));
     expect(loadProgress().progress.recentAttempts).toEqual([valid]);
+  });
+
+  it("defaults missing display history and filters malformed or excess entries", () => {
+    const progress = createDefaultProgress();
+    const { recentPresentations, ...legacy } = progress;
+    window.localStorage.setItem("russelli.progress.v1", JSON.stringify(legacy));
+    expect(loadProgress().progress.recentPresentations).toEqual([]);
+
+    const valid = Array.from({ length: 42 }, (_, index) => presentation(index + 1));
+    window.localStorage.setItem("russelli.progress.v1", JSON.stringify({
+      ...progress,
+      recentPresentations: [null, {}, { ...presentation(0), skillId: "unknown" }, ...valid]
+    }));
+    expect(loadProgress().progress.recentPresentations).toEqual(valid.slice(-40));
   });
 
   it("persists valid progress and recovers corrupted state", () => {
@@ -110,7 +147,9 @@ describe("local progress", () => {
   });
 
   it("clears both progress records so old progress cannot return after a reset", () => {
-    const progress = recordAttempt(createDefaultProgress(), attempt());
+    const progress = recordAttempt({
+      ...createDefaultProgress(), recentPresentations: [presentation(7)]
+    }, attempt());
     window.localStorage.setItem("nurkh.progress.v1", JSON.stringify(progress));
     window.localStorage.setItem("russelli.progress.v1", JSON.stringify(progress));
     const reset = clearProgress();
@@ -119,5 +158,6 @@ describe("local progress", () => {
     expect(window.localStorage.getItem("nurkh.progress.v1")).toBeNull();
     expect(JSON.parse(window.localStorage.getItem("russelli.progress.v1")!)).toEqual(reset);
     expect(loadProgress()).toEqual({ progress: reset, recovered: false });
+    expect(reset.recentPresentations).toEqual([]);
   });
 });

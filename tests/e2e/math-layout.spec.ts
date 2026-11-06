@@ -3,6 +3,24 @@ import { generateQuestion } from "../../src/math/generators";
 import { createDefaultProgress } from "../../src/state/storage";
 import type { SkillId } from "../../src/types";
 
+async function selectSeed(page: Page, seed: number) {
+  await page.addInitScript((desiredSeed) => {
+    const original = crypto.getRandomValues.bind(crypto);
+    let draw = 0;
+    Object.defineProperty(crypto, "getRandomValues", {
+      configurable: true,
+      value: (array: Uint32Array<ArrayBuffer>) => {
+        if (array instanceof Uint32Array && array.length === 1 && draw < 18) {
+          array[0] = draw === 0 ? desiredSeed % 2 : draw <= 16 ? Math.floor((desiredSeed - 1) / 2) : 0;
+          draw += 1;
+          return array;
+        }
+        return original(array);
+      }
+    });
+  }, seed);
+}
+
 async function expectExpressionFits(page: Page) {
   await expect.poll(() => page.locator("math-field.problem-equation").evaluate((field) => {
     const content = field.shadowRoot!.querySelector<HTMLElement>("[part=content]")!;
@@ -15,6 +33,8 @@ async function expectExpressionFits(page: Page) {
 }
 
 for (const scenario of [
+  { skill: "expressions", seed: 2, difficulty: "easy" },
+  { skill: "polynomials", seed: 2, difficulty: "hard" },
   { skill: "functions", seed: 2, difficulty: "hard" },
   { skill: "functions", seed: 23594, difficulty: "easy" },
   { skill: "lines_systems", seed: 3, difficulty: "hard" },
@@ -24,10 +44,10 @@ for (const scenario of [
   test(`fits ${scenario.skill} seed ${scenario.seed} inside the question box when resized`, async ({ page }) => {
     const progress = createDefaultProgress();
     progress.mastery[scenario.skill] = scenario.difficulty === "hard" ? 0.9 : 0.35;
-    await page.addInitScript(({ initial, seed }) => {
+    await selectSeed(page, scenario.seed);
+    await page.addInitScript((initial) => {
       localStorage.setItem("russelli.progress.v1", JSON.stringify(initial));
-      Date.now = () => seed;
-    }, { initial: progress, seed: scenario.seed });
+    }, progress);
     await page.setViewportSize({ width: 320, height: 900 });
     await page.goto(`/practice/?topic=${scenario.skill}`);
     await expect(page.locator("math-field.problem-equation")).toBeVisible();
@@ -50,7 +70,7 @@ for (const scenario of [
 }
 
 test("reflows a composition without changing the answer or leaving short questions undersized", async ({ page }) => {
-  await page.addInitScript(() => { Date.now = () => 2; });
+  await selectSeed(page, 2);
   await page.setViewportSize({ width: 320, height: 900 });
   await page.goto("/practice/?topic=functions");
   await expectExpressionFits(page);

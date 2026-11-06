@@ -27,14 +27,28 @@ export interface AnswerSpec {
 export interface Question {
   id: string;
   seed: number;
-  generatorVersion: 1;
+  generatorVersion: 1 | 2;
   skillId: SkillId;
   difficulty: Difficulty;
+  formId: string;
+  problemKey: string;
   promptLatex: string;
   instruction: string;
   answer: AnswerSpec;
   hints: string[];
   workedSolution: string[];
+}
+
+export interface RecentPresentation {
+  presentationId: string;
+  questionId: string;
+  seed: number;
+  skillId: SkillId;
+  difficulty: Difficulty;
+  calibrationIndex: number | null;
+  formId: string;
+  problemKey: string;
+  answerKey: string;
 }
 
 export interface ValidationResult {
@@ -76,6 +90,7 @@ export interface LocalProgressV1 {
   mastery: Record<SkillId, number>;
   recentAttempts: Attempt[];
   recentSeeds: number[];
+  recentPresentations: RecentPresentation[];
   preferredSkill: SkillId | null;
   totalPoints: number;
   currentStreak: number;

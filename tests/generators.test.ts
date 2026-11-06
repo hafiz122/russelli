@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { ComputeEngine } from "@cortex-js/compute-engine";
 import { skillIds } from "../src/data/skills";
-import { generators } from "../src/math/generators";
+import { formIds, generators } from "../src/math/generators";
 import type { Difficulty } from "../src/types";
 
 const difficulties: Difficulty[] = ["easy", "medium", "hard"];
+const ce = new ComputeEngine();
 
 describe("deterministic question generators", () => {
   for (const difficulty of difficulties) {
@@ -35,11 +37,16 @@ describe("deterministic question generators", () => {
         for (let seed = 1; seed <= 1_000; seed += 1) {
           const first = generator.generate(seed, difficulty);
           const second = generator.generate(seed, difficulty);
+          const changedGenerator = skillId === "expressions" || skillId === "polynomials";
 
           expect(second).toEqual(first);
-          expect(first.id).toBe(`${skillId}:${difficulty}:${seed}`);
+          expect(first.id).toBe(changedGenerator
+            ? `${skillId}:v2:${difficulty}:${seed}`
+            : `${skillId}:${difficulty}:${seed}`);
           expect(first.seed).toBe(seed);
-          expect(first.generatorVersion).toBe(1);
+          expect(first.generatorVersion).toBe(changedGenerator ? 2 : 1);
+          expect(first.formId).toBe(formIds[skillId][seed % 2]);
+          expect(first.problemKey).toContain(`${skillId}:${first.formId}:`);
           expect(first.promptLatex).not.toMatch(/NaN|Infinity|undefined/);
           expect(first.answer.latex).not.toMatch(/NaN|Infinity|undefined/);
           expect(first.hints.length).toBeGreaterThan(0);
@@ -51,5 +58,38 @@ describe("deterministic question generators", () => {
         }
       });
     }
+  }
+
+  it("canonically identifies commutative problems with swapped operands", () => {
+    for (const skillId of ["polynomials", "exponents_radicals"] as const) {
+      const seen = new Map<string, string>();
+      let foundSwappedPrompt = false;
+      for (let seed = 1; seed <= 1_000; seed += 2) {
+        const question = generators[skillId].generate(seed, "easy");
+        const earlierPrompt = seen.get(question.problemKey);
+        if (earlierPrompt && earlierPrompt !== question.promptLatex) {
+          foundSwappedPrompt = true;
+          break;
+        }
+        seen.set(question.problemKey, question.promptLatex);
+      }
+      expect(foundSwappedPrompt, `${skillId} should identify swapped operands`).toBe(true);
+    }
+  });
+
+  for (const difficulty of difficulties) {
+    it(`new ${difficulty} forms give mathematically correct answers across 500 seeds each`, () => {
+      for (let seed = 2; seed <= 1_000; seed += 2) {
+        const evaluation = generators.expressions.generate(seed, difficulty);
+        const match = evaluation.promptLatex.match(/^p\(x\)=(.*),\\quad p\((-?\d+)\)$/);
+        expect(match, evaluation.id).not.toBeNull();
+        const calculated = ce.parse(match![1]).subs({ x: Number(match![2]) }).simplify();
+        expect(calculated.is(ce.parse(evaluation.answer.latex)), evaluation.id).toBe(true);
+
+        const addition = generators.polynomials.generate(seed, difficulty);
+        const sum = ce.parse(addition.promptLatex).simplify();
+        expect(sum.isIdenticallyEqual(ce.parse(addition.answer.latex)), addition.id).toBe(true);
+      }
+    });
   }
 });

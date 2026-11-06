@@ -44,7 +44,7 @@ This record shows one accepted answer submitted during the screenshot session.
 5. Continue with the adaptive queue, or select a topic under **Practice focus** for focused practice.
 6. Open **Progress** to review topic readiness and recent answer checks. **Reset local progress** opens a confirmation dialog before clearing the record.
 
-The adaptive queue considers mastery, how recently a topic appeared, and prerequisite readiness. Difficulty moves between easy, medium, and hard as mastery changes. First-attempt success increases mastery more than success after retries or hints; incorrect checks and skips reduce it.
+The adaptive queue considers mastery, how recently a topic appeared, and prerequisite readiness. Difficulty moves between easy, medium, and hard as mastery changes. Within a topic, consecutive questions in one tab use different problem forms. The app also compares new questions with recently displayed problems to reduce repeats. First-attempt success increases mastery more than success after retries or hints; incorrect checks and skips reduce it.
 
 ### Points and streaks
 
@@ -58,11 +58,11 @@ Practice shows your points and current streak beside the problem. Progress also 
 
 | Topic | Current practice |
 | --- | --- |
-| Expressions | Distribute factors and collect like terms |
+| Expressions | Distribute and collect like terms, or evaluate an expression |
 | Equations & inequalities | Solve linear equations and express inequality solutions as intervals |
 | Lines & systems | Find a line through two points and solve two-variable linear systems |
 | Exponents & radicals | Multiply powers with the same base and simplify square roots |
-| Polynomials | Expand and simplify products of binomials |
+| Polynomials | Expand binomial products or add quadratic polynomials |
 | Factoring & quadratics | Factor quadratics and find their real roots |
 | Rational expressions | Cancel common factors and solve rational equations |
 | Functions | Evaluate compositions and inverse functions |
@@ -76,13 +76,13 @@ Follow each problem's answer instructions:
 
 ### Local progress
 
-The application runs entirely in the browser, with no account or backend service. It saves calibration state, mastery scores, topic preference, recent attempts, recent seeds, cumulative points, current and best streaks, and the current question's reward status in `localStorage` under `russelli.progress.v1`. Older records retain their learning history and start with zero rewards; historical answers do not receive points retroactively. Invalid reward fields fall back to safe defaults without removing valid learning history.
+The application runs entirely in the browser, with no account or backend service. It saves calibration state, mastery scores, topic preference, recent attempts, recent seeds, recently displayed questions, cumulative points, current and best streaks, and the current question's reward status in `localStorage` under `russelli.progress.v1`. A tab also remembers its last problem form for each topic in `sessionStorage`. Older records retain their learning history and start with zero rewards; historical answers do not receive points retroactively. Invalid reward fields fall back to safe defaults without removing valid learning history.
 
 On the same browser profile and site origin, the app also reads the legacy `nurkh.progress.v1` key when no current record exists, preserving progress saved before the rename. Subsequent saves use `russelli.progress.v1`; a reset removes the legacy record and saves the cleared current record with a new reset identifier.
 
-The record retains up to 80 attempts and 40 recent seeds; the progress page displays the latest six checks. Cumulative points and streaks are stored separately from these limits. Progress belongs to the browser profile and site origin, so local development and the live site have separate records. It does not sync across browsers or devices. Clearing site data removes the record. Confirming a reset clears learning history, points, and streaks while retaining a reset identifier that prevents stale tabs from restoring them. If saved progress cannot be read, the app starts a fresh record and displays a recovery notice.
+The record retains up to 80 attempts, 40 recent seeds, and 40 recently displayed questions; the progress page displays the latest six checks. Cumulative points and streaks are stored separately from these limits. Progress belongs to the browser profile and site origin, so local development and the live site have separate records. It does not sync across browsers or devices. Clearing site data removes the record. Confirming a reset clears learning history, points, streaks, and question history while retaining a reset identifier that prevents stale tabs from restoring them. If saved progress cannot be read, the app starts a fresh record and displays a recovery notice.
 
-Open tabs share progress updates. Writes use the browser's Web Locks API to read and update the latest saved record in order, including when answers arrive simultaneously. Resetting also starts a fresh question in other practice tabs; an old queued submission cannot add data to the new record. Safe saving requires a browser with Web Locks support over HTTPS or localhost. If a save fails, the app shows an error and leaves the answer available to retry rather than accepting it without saving.
+Open tabs share progress updates. Writes use the browser's Web Locks API to read and update the latest saved record in order, including when answers arrive simultaneously. A question is saved before it is shown so recent-question checks cover skips, reloads, and concurrent tabs. Resetting also starts a fresh question in other practice tabs; an old queued submission cannot add data to the new record. Safe saving requires a browser with Web Locks support over HTTPS or localhost. If a save fails, the app shows an error and leaves the answer available to retry rather than accepting it without saving.
 
 Each displayed problem has its own presentation ID for rewards, separate from its reproducible mathematical question ID. Identical seeded problems in different tabs therefore earn points independently. Calibration submissions retain the slot shown with their question: completing an older copy still updates mastery and rewards, but cannot consume a later calibration slot.
 
@@ -174,6 +174,7 @@ The stack is React and TypeScript with Vite, MathLive for mathematical input and
 | `src/math/rng.ts`, `src/math/format.ts` | Deterministic random values and math formatting |
 | `src/math/validator.ts` | Parsing, equivalence checks, and required answer forms |
 | `src/state/adaptive.ts` | Topic selection, difficulty, mastery, and attempt recording |
+| `src/state/questionSelection.ts`, `src/state/reservation.ts` | Form alternation, seeded candidate selection, and display reservations |
 | `src/state/rewards.ts` | Points, streaks, reward eligibility, and duplicate-award protection |
 | `src/state/storage.ts` | Versioned browser storage, recovery, and reset |
 | `src/styles.css` | Paper-and-ink theme and responsive layout |

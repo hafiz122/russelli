@@ -2,15 +2,40 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { MathAnswerInput, StaticMath } from "./components/MathField";
 import { getSkill, skillIds, skills } from "./data/skills";
 import { changelog } from "./data/changelog";
-import { generateQuestion } from "./math/generators";
 import { isParseableAnswer, validateAnswer } from "./math/validator";
-import { chooseSkill, difficultyFor, nextSeed, recordAttempt, setPreferredSkill } from "./state/adaptive";
+import { recordAttempt, setPreferredSkill } from "./state/adaptive";
 import { commitProgress, loadProgress, resetStoredProgress, STORAGE_KEY, type ProgressCommit, type ProgressUpdate } from "./state/storage";
 import { applyRewardEvent } from "./state/rewards";
-import type { Attempt, LocalProgressV1, SkillId, ValidationResult } from "./types";
+import { reservePresentation, type Reservation } from "./state/reservation";
+import type { Attempt, LocalProgressV1, Question, SkillId, ValidationResult } from "./types";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 type UpdateProgress = (update: ProgressUpdate) => Promise<ProgressCommit | null>;
+const TAB_FORMS_KEY = "russelli.last-forms.v1";
+
+function tabLastForms(resetId: string): Partial<Record<SkillId, string>> {
+  try {
+    const saved = JSON.parse(window.sessionStorage.getItem(TAB_FORMS_KEY) ?? "null") as {
+      resetId?: string;
+      forms?: Partial<Record<SkillId, string>>;
+    } | null;
+    return saved?.resetId === resetId && saved.forms && typeof saved.forms === "object" ? saved.forms : {};
+  } catch {
+    return {};
+  }
+}
+
+function rememberForm(resetId: string, question: Question): void {
+  try {
+    const forms = tabLastForms(resetId);
+    window.sessionStorage.setItem(TAB_FORMS_KEY, JSON.stringify({
+      resetId,
+      forms: { ...forms, [question.skillId]: question.formId }
+    }));
+  } catch {
+    // Selection still uses the shared display history when tab storage is unavailable.
+  }
+}
 
 function siteHref(path: string): string {
   return `${basePath}${path.startsWith("/") ? path : `/${path}`}`;
@@ -128,14 +153,12 @@ function HomePage({ progress }: { progress: LocalProgressV1 }) {
 function PracticePage({ progress, updateProgress, saving }: { progress: LocalProgressV1; updateProgress: UpdateProgress; saving: boolean }) {
   const querySkill = new URLSearchParams(window.location.search).get("topic") as SkillId | null;
   const validQuerySkill = querySkill && skillIds.includes(querySkill) ? querySkill : null;
-  const [question, setQuestion] = useState(() => {
-    const skillId = validQuerySkill ?? chooseSkill(progress);
-    return generateQuestion(skillId, nextSeed(progress), difficultyFor(progress.mastery[skillId]));
-  });
-  const [questionContext, setQuestionContext] = useState(() => ({
-    calibrationIndex: progress.calibrationCompleted ? null : progress.calibrationIndex,
-    presentationId: crypto.randomUUID()
-  }));
+  const [question, setQuestion] = useState<Question | null>(null);
+  const [questionContext, setQuestionContext] = useState<{ calibrationIndex: number | null; presentationId: string } | null>(null);
+  const [reservationFailed, setReservationFailed] = useState(false);
+  const firstPresentationId = useRef(crypto.randomUUID());
+  const initialRequestStarted = useRef(false);
+  const retryButtonRef = useRef<HTMLButtonElement>(null);
   const [answer, setAnswer] = useState("");
   const [attemptCount, setAttemptCount] = useState(0);
   const [feedback, setFeedback] = useState<ValidationResult | null>(null);
@@ -143,10 +166,42 @@ function PracticePage({ progress, updateProgress, saving }: { progress: LocalPro
   const [solutionVisible, setSolutionVisible] = useState(false);
   const [earnedPoints, setEarnedPoints] = useState<number | null>(null);
   const acceptedRef = useRef(false);
-  const parseable = isParseableAnswer(question, answer);
-  const skill = getSkill(question.skillId);
+  const parseable = question ? isParseableAnswer(question, answer) : false;
+  const skill = question ? getSkill(question.skillId) : null;
+
+  async function reserveInitialQuestion() {
+    setReservationFailed(false);
+    const reservation = { current: null as Reservation | null };
+    const commit = await updateProgress((current) => {
+      reservation.current = reservePresentation(current, {
+        presentationId: firstPresentationId.current,
+        topicOverride: validQuerySkill,
+        lastForms: tabLastForms(current.resetId)
+      });
+      return reservation.current.progress;
+    });
+    const reserved = reservation.current;
+    if (commit?.applied && reserved) {
+      setQuestion(reserved.question);
+      setQuestionContext({ calibrationIndex: reserved.calibrationIndex, presentationId: firstPresentationId.current });
+      rememberForm(commit.progress.resetId, reserved.question);
+    } else if (commit === null) {
+      setReservationFailed(true);
+    }
+  }
+
+  useEffect(() => {
+    if (initialRequestStarted.current) return;
+    initialRequestStarted.current = true;
+    void reserveInitialQuestion();
+  }, []);
+
+  useEffect(() => {
+    if (reservationFailed) retryButtonRef.current?.focus();
+  }, [reservationFailed]);
 
   function makeAttempt(result: ValidationResult, revealed = solutionVisible): Attempt {
+    if (!question || !questionContext) throw new Error("No question is ready.");
     return {
       questionId: question.id,
       presentationId: questionContext.presentationId,
@@ -164,7 +219,7 @@ function PracticePage({ progress, updateProgress, saving }: { progress: LocalPro
   }
 
   async function submitAnswer() {
-    if (!parseable || acceptedRef.current || saving) return;
+    if (!question || !questionContext || !parseable || acceptedRef.current || saving) return;
     const result = validateAnswer(question, answer);
     if (!result.parseable) return;
     acceptedRef.current = result.correct;
@@ -180,29 +235,36 @@ function PracticePage({ progress, updateProgress, saving }: { progress: LocalPro
   }
 
   async function loadNext(recordSkip: boolean) {
-    if (saving) return;
-    let nextProgress = progress;
-    if (recordSkip && !feedback?.correct) {
-      const skippedResult: ValidationResult = {
-        parseable: true,
-        correct: false,
-        normalizedAnswer: answer,
-        feedback: "Question skipped.",
-        retryEligible: false
-      };
-      const attempt = makeAttempt(skippedResult, solutionVisible);
-      const commit = await updateProgress((current) => applyRewardEvent(recordAttempt(current, attempt), {
-        type: "skip", questionId: question.id, presentationId: questionContext.presentationId
-      }));
-      if (!commit?.applied) return;
-      nextProgress = commit.progress;
-    }
-    const nextSkill = validQuerySkill ?? chooseSkill(nextProgress);
-    setQuestion(generateQuestion(nextSkill, nextSeed(nextProgress, Date.now() + attemptCount + 1), difficultyFor(nextProgress.mastery[nextSkill])));
-    setQuestionContext({
-      calibrationIndex: nextProgress.calibrationCompleted ? null : nextProgress.calibrationIndex,
-      presentationId: crypto.randomUUID()
+    if (!question || !questionContext || saving) return;
+    const presentationId = crypto.randomUUID();
+    const reservation = { current: null as Reservation | null };
+    const commit = await updateProgress((current) => {
+      let nextProgress = current;
+      if (recordSkip && !feedback?.correct) {
+        const skippedResult: ValidationResult = {
+          parseable: true,
+          correct: false,
+          normalizedAnswer: answer,
+          feedback: "Question skipped.",
+          retryEligible: false
+        };
+        const attempt = makeAttempt(skippedResult, solutionVisible);
+        nextProgress = applyRewardEvent(recordAttempt(nextProgress, attempt), {
+          type: "skip", questionId: question.id, presentationId: questionContext.presentationId
+        });
+      }
+      reservation.current = reservePresentation(nextProgress, {
+        presentationId,
+        topicOverride: validQuerySkill,
+        lastForms: { ...tabLastForms(current.resetId), [question.skillId]: question.formId }
+      });
+      return reservation.current.progress;
     });
+    const reserved = reservation.current;
+    if (!commit?.applied || !reserved) return;
+    setQuestion(reserved.question);
+    setQuestionContext({ calibrationIndex: reserved.calibrationIndex, presentationId });
+    rememberForm(commit.progress.resetId, reserved.question);
     setAnswer("");
     setAttemptCount(0);
     setFeedback(null);
@@ -213,6 +275,7 @@ function PracticePage({ progress, updateProgress, saving }: { progress: LocalPro
   }
 
   async function revealSolution() {
+    if (!question || !questionContext) return;
     if (acceptedRef.current) {
       setSolutionVisible(true);
       return;
@@ -227,6 +290,20 @@ function PracticePage({ progress, updateProgress, saving }: { progress: LocalPro
     const commit = await updateProgress((current) => setPreferredSkill(current, skillId));
     if (!commit?.applied) return;
     window.location.href = skillId ? siteHref(`/practice/?topic=${skillId}`) : siteHref("/practice/");
+  }
+
+  if (!question || !questionContext || !skill) {
+    return (
+      <div className="practice-page page-shell">
+        <section className="problem-sheet preparation-sheet">
+          <h1>{reservationFailed ? "Question unavailable" : "Preparing your question"}</h1>
+          <p role="status">{reservationFailed
+            ? "Your question could not be saved. Try again to continue practicing."
+            : "Choosing and saving a question for your practice."}</p>
+          {reservationFailed && <button ref={retryButtonRef} className="button primary" type="button" onClick={reserveInitialQuestion} disabled={saving}>Try again</button>}
+        </section>
+      </div>
+    );
   }
 
   return (
@@ -389,13 +466,13 @@ function PrivacyPage() {
       <header className="legal-heading">
         <h1>Privacy notice</h1>
         <p>How russelli. handles your algebra practice record and site visits.</p>
-        <p className="legal-date">Last updated <time dateTime="2026-11-05">5 November 2026</time></p>
+        <p className="legal-date">Last updated <time dateTime="2026-11-06">6 November 2026</time></p>
       </header>
 
       <section aria-labelledby="privacy-local">
         <h2 id="privacy-local">Your practice record</h2>
         <p>Answers are checked in your browser. The site saves your submitted answers, check results, dates, topic readiness, question history, points, and streaks in your browser’s local storage so you can continue practicing. It does not send that record to us or sync it across devices.</p>
-        <p>The record keeps at most 80 recent attempts and 40 recent question seeds. Other progress, such as points and streaks, stays until you reset it or clear this site’s browser data. An older local record may be read to preserve progress from before the site was renamed.</p>
+        <p>The record keeps at most 80 recent attempts, 40 recent question seeds, and 40 recently displayed questions. This question history helps avoid repeats, including questions you skip or leave without answering. This tab also remembers the last problem form shown in each topic in browser session storage until you close the tab. Other progress, such as points and streaks, stays until you reset it or clear this site’s browser data. An older local record may be read to preserve progress from before the site was renamed.</p>
       </section>
 
       <section aria-labelledby="privacy-control">

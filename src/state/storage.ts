@@ -1,5 +1,5 @@
 import { skillIds } from "../data/skills";
-import type { Attempt, LocalProgressV1, QuestionReward, SkillId } from "../types";
+import type { Attempt, LocalProgressV1, QuestionReward, RecentPresentation, SkillId } from "../types";
 
 export const STORAGE_KEY = "russelli.progress.v1";
 const LEGACY_STORAGE_KEY = "nurkh.progress.v1";
@@ -25,6 +25,7 @@ export function createDefaultProgress(): LocalProgressV1 {
     mastery: defaultMastery(),
     recentAttempts: [],
     recentSeeds: [],
+    recentPresentations: [],
     preferredSkill: null,
     totalPoints: 0,
     currentStreak: 0,
@@ -50,6 +51,21 @@ function isAttempt(value: unknown): value is Attempt {
     Number.isInteger(attempt.attemptCount) && (attempt.attemptCount ?? 0) >= 1 &&
     typeof attempt.solutionRevealed === "boolean" &&
     typeof attempt.timestamp === "string" && Number.isFinite(Date.parse(attempt.timestamp));
+}
+
+function isRecentPresentation(value: unknown): value is RecentPresentation {
+  if (typeof value !== "object" || value === null) return false;
+  const item = value as Partial<RecentPresentation>;
+  return typeof item.presentationId === "string" && item.presentationId.length > 0 &&
+    typeof item.questionId === "string" && item.questionId.length > 0 &&
+    Number.isInteger(item.seed) && (item.seed ?? 0) > 0 && (item.seed ?? 0) < 2147483647 &&
+    isSkillId(item.skillId) &&
+    ["easy", "medium", "hard"].includes(item.difficulty ?? "") &&
+    typeof item.formId === "string" && item.formId.length > 0 &&
+    typeof item.problemKey === "string" && item.problemKey.length > 0 &&
+    typeof item.answerKey === "string" &&
+    (item.calibrationIndex === null ||
+      (Number.isInteger(item.calibrationIndex) && (item.calibrationIndex ?? -1) >= 0 && (item.calibrationIndex ?? 0) < skillIds.length));
 }
 
 function rewardCount(value: unknown): number {
@@ -93,6 +109,9 @@ export function loadProgress(): { progress: LocalProgressV1; recovered: boolean 
     base.recentAttempts = Array.isArray(value.recentAttempts) ? value.recentAttempts.filter(isAttempt).slice(-80) : [];
     base.recentSeeds = Array.isArray(value.recentSeeds)
       ? value.recentSeeds.filter((seed) => Number.isInteger(seed)).slice(-40)
+      : [];
+    base.recentPresentations = Array.isArray(value.recentPresentations)
+      ? value.recentPresentations.filter(isRecentPresentation).slice(-40)
       : [];
     base.preferredSkill = isSkillId(value.preferredSkill) ? value.preferredSkill : null;
     base.totalPoints = rewardCount(value.totalPoints);

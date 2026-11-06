@@ -9,6 +9,8 @@ function question(expected: string, kind: AnswerKind, extras: Partial<Question["
     generatorVersion: 1,
     skillId: "expressions",
     difficulty: "easy",
+    formId: "test",
+    problemKey: "test:x",
     promptLatex: "x",
     instruction: "Test",
     answer: { latex: expected, kind, ...extras },
