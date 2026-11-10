@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MathAnswerInput, StaticMath } from "./components/MathField";
-import { getSkill, skillIds, skills } from "./data/skills";
+import { algebraSkillIds, getSkill, linearAlgebraSkillIds, skills } from "./data/skills";
 import { changelog } from "./data/changelog";
 import { isParseableAnswer, validateAnswer } from "./math/validator";
 import { recordAttempt, setPreferredSkill } from "./state/adaptive";
 import { commitProgress, loadProgress, resetStoredProgress, STORAGE_KEY, type ProgressCommit, type ProgressUpdate } from "./state/storage";
 import { applyRewardEvent } from "./state/rewards";
 import { reservePresentation, type Reservation } from "./state/reservation";
-import type { Attempt, LocalProgressV1, Question, SkillId, ValidationResult } from "./types";
+import type { Attempt, LocalProgressV1, Question, SkillId, TrackId, ValidationResult } from "./types";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 type UpdateProgress = (update: ProgressUpdate) => Promise<ProgressCommit | null>;
@@ -41,12 +41,13 @@ function siteHref(path: string): string {
   return `${basePath}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-function currentPath(): "home" | "practice" | "progress" | "changelog" | "privacy" | "terms" {
+function currentPath(): "home" | "practice" | "linear_algebra" | "progress" | "changelog" | "privacy" | "terms" {
   const pathname = basePath && window.location.pathname.startsWith(`${basePath}/`)
     ? window.location.pathname.slice(basePath.length)
     : window.location.pathname;
   const path = pathname.replace(/\/$/, "") || "/";
   if (path === "/practice") return "practice";
+  if (path === "/linear-algebra") return "linear_algebra";
   if (path === "/progress") return "progress";
   if (path === "/changelog") return "changelog";
   if (path === "/privacy") return "privacy";
@@ -61,7 +62,8 @@ function SiteShell({ children, route }: { children: React.ReactNode; route: Retu
       <header className="site-header">
         <a className="wordmark" href={siteHref("/")} aria-label="russelli home">russelli.</a>
         <nav aria-label="Primary navigation">
-          <a className={route === "practice" ? "active" : ""} href={siteHref("/practice/")}>Practice</a>
+          <a className={route === "practice" ? "active" : ""} aria-current={route === "practice" ? "page" : undefined} href={siteHref("/practice/")}>Algebra</a>
+          <a className={route === "linear_algebra" ? "active" : ""} aria-current={route === "linear_algebra" ? "page" : undefined} href={siteHref("/linear-algebra/")}>Linear algebra</a>
           <a className={route === "progress" ? "active" : ""} href={siteHref("/progress/")}>Progress</a>
           <a className={route === "changelog" ? "active" : ""} aria-current={route === "changelog" ? "page" : undefined} href={siteHref("/changelog/")}>Changelog</a>
         </nav>
@@ -103,8 +105,9 @@ function PointsHelp() {
 
 function HomePage({ progress }: { progress: LocalProgressV1 }) {
   const hasAttempts = progress.recentAttempts.length > 0;
+  const hasAlgebraAttempts = progress.recentAttempts.some((attempt) => algebraSkillIds.includes(attempt.skillId));
   const completed = progress.calibrationCompleted;
-  const actionLabel = completed ? "Continue adaptive practice" : hasAttempts ? "Continue calibration" : "Start the calibration";
+  const actionLabel = completed ? "Continue adaptive practice" : hasAlgebraAttempts ? "Continue calibration" : "Start the calibration";
 
   return (
     <div className="home-layout page-shell">
@@ -135,7 +138,7 @@ function HomePage({ progress }: { progress: LocalProgressV1 }) {
           <h2 id="topics-title">The algebra path</h2>
         </div>
         <ol>
-          {skills.map((skill, index) => (
+          {skills.filter((skill) => skill.track === "algebra").map((skill, index) => (
             <li key={skill.id}>
               <span>{String(index + 1).padStart(2, "0")}</span>
               <div>
@@ -146,13 +149,29 @@ function HomePage({ progress }: { progress: LocalProgressV1 }) {
           ))}
         </ol>
       </section>
+      <section className="linear-track-intro" aria-labelledby="linear-track-title">
+        <div>
+          <p className="section-number">Five connected areas</p>
+          <h2 id="linear-track-title">Linear algebra</h2>
+          <p>Start with vectors, then work through matrices, systems, determinants, and eigen problems. One question at a time, with your working on paper.</p>
+          <a className="button quiet" href={siteHref("/linear-algebra/")}>Practice linear algebra</a>
+        </div>
+        <ol>
+          {skills.filter((skill) => skill.track === "linear_algebra").map((skill) => (
+            <li key={skill.id}><strong>{skill.title}</strong><span>{skill.description}</span></li>
+          ))}
+        </ol>
+      </section>
     </div>
   );
 }
 
-function PracticePage({ progress, updateProgress, saving }: { progress: LocalProgressV1; updateProgress: UpdateProgress; saving: boolean }) {
+function PracticePage({ progress, updateProgress, saving, track }: { progress: LocalProgressV1; updateProgress: UpdateProgress; saving: boolean; track: TrackId }) {
+  const trackSkillIds = track === "algebra" ? algebraSkillIds : linearAlgebraSkillIds;
+  const trackSkills = skills.filter((item) => item.track === track);
+  const practicePath = track === "algebra" ? "/practice/" : "/linear-algebra/";
   const querySkill = new URLSearchParams(window.location.search).get("topic") as SkillId | null;
-  const validQuerySkill = querySkill && skillIds.includes(querySkill) ? querySkill : null;
+  const validQuerySkill = querySkill && trackSkillIds.includes(querySkill) ? querySkill : null;
   const [question, setQuestion] = useState<Question | null>(null);
   const [questionContext, setQuestionContext] = useState<{ calibrationIndex: number | null; presentationId: string } | null>(null);
   const [reservationFailed, setReservationFailed] = useState(false);
@@ -176,6 +195,7 @@ function PracticePage({ progress, updateProgress, saving }: { progress: LocalPro
       reservation.current = reservePresentation(current, {
         presentationId: firstPresentationId.current,
         topicOverride: validQuerySkill,
+        track,
         lastForms: tabLastForms(current.resetId)
       });
       return reservation.current.progress;
@@ -256,6 +276,7 @@ function PracticePage({ progress, updateProgress, saving }: { progress: LocalPro
       reservation.current = reservePresentation(nextProgress, {
         presentationId,
         topicOverride: validQuerySkill,
+        track,
         lastForms: { ...tabLastForms(current.resetId), [question.skillId]: question.formId }
       });
       return reservation.current.progress;
@@ -287,9 +308,9 @@ function PracticePage({ progress, updateProgress, saving }: { progress: LocalPro
   }
 
   async function chooseTopic(skillId: SkillId | null) {
-    const commit = await updateProgress((current) => setPreferredSkill(current, skillId));
+    const commit = await updateProgress((current) => setPreferredSkill(current, skillId, track));
     if (!commit?.applied) return;
-    window.location.href = skillId ? siteHref(`/practice/?topic=${skillId}`) : siteHref("/practice/");
+    window.location.href = skillId ? siteHref(`${practicePath}?topic=${skillId}`) : siteHref(practicePath);
   }
 
   if (!question || !questionContext || !skill) {
@@ -310,8 +331,10 @@ function PracticePage({ progress, updateProgress, saving }: { progress: LocalPro
     <div className="practice-page page-shell">
       <section className="practice-context" aria-label="Practice context">
         <div>
-          {questionContext.calibrationIndex !== null ? (
-            <p className="plain-kicker">Calibration {Math.min(questionContext.calibrationIndex + 1, skillIds.length)} of {skillIds.length}</p>
+          {track === "linear_algebra" ? (
+            <p className="plain-kicker">Guided linear algebra</p>
+          ) : questionContext.calibrationIndex !== null ? (
+            <p className="plain-kicker">Calibration {Math.min(questionContext.calibrationIndex + 1, algebraSkillIds.length)} of {algebraSkillIds.length}</p>
           ) : (
             <p className="plain-kicker">Adaptive practice</p>
           )}
@@ -322,11 +345,11 @@ function PracticePage({ progress, updateProgress, saving }: { progress: LocalPro
           Practice focus
           <select
             disabled={saving}
-            value={validQuerySkill ?? progress.preferredSkill ?? "adaptive"}
+            value={validQuerySkill ?? (track === "algebra" ? progress.preferredSkill : progress.preferredLinearSkill) ?? "adaptive"}
             onChange={(event) => chooseTopic(event.target.value === "adaptive" ? null : (event.target.value as SkillId))}
           >
-            <option value="adaptive">Adaptive queue</option>
-            {skills.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+            <option value="adaptive">{track === "algebra" ? "Adaptive queue" : "Guided queue"}</option>
+            {trackSkills.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
           </select>
         </label>
         <dl className="practice-rewards" aria-label="Practice rewards">
@@ -356,11 +379,12 @@ function PracticePage({ progress, updateProgress, saving }: { progress: LocalPro
             onSubmit={submitAnswer}
             disabled={Boolean(feedback?.correct)}
             readOnly={saving}
-            label="Final algebra answer"
+            label={`Final ${track === "algebra" ? "algebra" : "linear algebra"} answer`}
+            matrixShape={question.answer.matrixShape}
           />
           <details className="syntax-help">
             <summary>Answer format help</summary>
-            <p>Use the math keyboard for fractions, powers, and roots. Enter ordered pairs as (x, y) and inequalities in interval notation. Infinity always uses a parenthesis, never a square bracket.</p>
+            <p>Use the math keyboard for fractions, powers, and roots. Enter pairs as (x, y), triples as (x, y, z), and inequalities in interval notation. Infinity always uses a parenthesis. For matrix answers, use the insert button and fill each cell.</p>
           </details>
         </div>
 
@@ -465,8 +489,8 @@ function PrivacyPage() {
     <article className="legal-page page-shell">
       <header className="legal-heading">
         <h1>Privacy notice</h1>
-        <p>How russelli. handles your algebra practice record and site visits.</p>
-        <p className="legal-date">Last updated <time dateTime="2026-11-06">6 November 2026</time></p>
+        <p>How russelli. handles your practice record and site visits.</p>
+        <p className="legal-date">Last updated <time dateTime="2026-11-09">9 November 2026</time></p>
       </header>
 
       <section aria-labelledby="privacy-local">
@@ -500,12 +524,12 @@ function TermsPage() {
       <header className="legal-heading">
         <h1>Terms of use</h1>
         <p>A few ground rules for using russelli. to practice algebra.</p>
-        <p className="legal-date">Last updated <time dateTime="2026-11-05">5 November 2026</time></p>
+        <p className="legal-date">Last updated <time dateTime="2026-11-09">9 November 2026</time></p>
       </header>
 
       <section aria-labelledby="terms-use">
         <h2 id="terms-use">Study use</h2>
-        <p>russelli. offers free algebra questions, hints, and automated answer checking for study. Work through each problem on paper and enter your final mathematical answer. You may use the site for your own learning or in teaching.</p>
+        <p>russelli. offers free algebra and linear algebra questions, hints, and automated answer checking for study. Work through each problem on paper and enter your final mathematical answer. You may use the site for your own learning or in teaching.</p>
       </section>
 
       <section aria-labelledby="terms-checking">
@@ -539,7 +563,7 @@ function ProgressPage({ progress, resetProgress, saving }: { progress: LocalProg
     <div className="progress-page page-shell">
       <section className="progress-heading">
         <p className="plain-kicker">Stored on this device</p>
-        <h1>Your algebra record</h1>
+        <h1>Your practice record</h1>
         <p>Mastery changes as you answer. Choose any topic when you want focused practice.</p>
       </section>
 
@@ -557,6 +581,7 @@ function ProgressPage({ progress, resetProgress, saving }: { progress: LocalProg
           <h2 id="empty-title">No answers recorded yet.</h2>
           <p>Complete the first calibration question to start a local progress record.</p>
           <a className="button primary" href={siteHref("/practice/")}>Answer the first question</a>
+          <a className="text-link" href={siteHref("/linear-algebra/")}>Explore linear algebra</a>
         </section>
       ) : (
         <>
@@ -580,23 +605,28 @@ function ProgressPage({ progress, resetProgress, saving }: { progress: LocalProg
               <h2 id="mastery-title">Topic readiness</h2>
               <p>The bars reflect only the answers stored in this browser.</p>
             </div>
-            <div className="mastery-rows">
-              {skills.map((skill) => {
-                const score = progress.mastery[skill.id];
-                const label = score < 0.45 ? "Building" : score <= 0.75 ? "Developing" : "Ready for challenge";
-                return (
-                  <article key={skill.id} className="mastery-row">
-                    <div>
-                      <h3>{skill.title}</h3>
-                      <p>{label}</p>
-                    </div>
-                    <div className="mastery-meter" role="meter" aria-label={`${skill.title}: ${label}`} aria-valuemin={0} aria-valuemax={1} aria-valuenow={score}>
-                      <span style={{ width: `${score * 100}%` }} />
-                    </div>
-                    <a href={siteHref(`/practice/?topic=${skill.id}`)}>Practice this topic</a>
-                  </article>
-                );
-              })}
+            <div className="mastery-groups">
+              {(["algebra", "linear_algebra"] as TrackId[]).map((trackId) => (
+                <div className="mastery-rows" key={trackId}>
+                  <h3 className="mastery-track-title">{trackId === "algebra" ? "Algebra" : "Linear algebra"}</h3>
+                  {skills.filter((skill) => skill.track === trackId).map((skill) => {
+                    const score = progress.mastery[skill.id];
+                    const label = score < 0.45 ? "Building" : score <= 0.75 ? "Developing" : "Ready for challenge";
+                    return (
+                      <article key={skill.id} className="mastery-row">
+                        <div>
+                          <h4>{skill.title}</h4>
+                          <p>{label}</p>
+                        </div>
+                        <div className="mastery-meter" role="meter" aria-label={`${skill.title}: ${label}`} aria-valuemin={0} aria-valuemax={1} aria-valuenow={score}>
+                          <span style={{ width: `${score * 100}%` }} />
+                        </div>
+                        <a href={siteHref(`${trackId === "algebra" ? "/practice/" : "/linear-algebra/"}?topic=${skill.id}`)}>Practice this topic</a>
+                      </article>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
           </section>
 
@@ -696,7 +726,8 @@ export default function App() {
       <RecoveryNotice visible={initial.recovered} />
       {storageError && <div className="system-notice" role="alert">Progress could not be saved. {storageError}</div>}
       {route === "home" && <HomePage progress={progress} />}
-      {route === "practice" && <PracticePage key={progress.resetId} progress={progress} updateProgress={updateProgress} saving={saving} />}
+      {route === "practice" && <PracticePage key={progress.resetId} progress={progress} updateProgress={updateProgress} saving={saving} track="algebra" />}
+      {route === "linear_algebra" && <PracticePage key={progress.resetId} progress={progress} updateProgress={updateProgress} saving={saving} track="linear_algebra" />}
       {route === "progress" && <ProgressPage progress={progress} resetProgress={resetProgress} saving={saving} />}
       {route === "changelog" && <ChangelogPage />}
       {route === "privacy" && <PrivacyPage />}

@@ -22,21 +22,52 @@ function parse(value: string, canonical = true): BoxedExpression | null {
   }
 }
 
-function splitTuple(value: string): [string, string] | null {
+function splitTuple(value: string, size = 2): string[] | null {
   const cleaned = value
     .replace(/\\left|\\right/g, "")
     .replace(/^\s*[([]/, "")
     .replace(/[)\]]\s*$/, "");
   let depth = 0;
+  const parts: string[] = [];
+  let start = 0;
   for (let index = 0; index < cleaned.length; index += 1) {
     const character = cleaned[index];
     if (character === "{" || character === "(" || character === "[") depth += 1;
     if (character === "}" || character === ")" || character === "]") depth -= 1;
     if (character === "," && depth === 0) {
-      return [cleaned.slice(0, index), cleaned.slice(index + 1)];
+      parts.push(cleaned.slice(start, index));
+      start = index + 1;
     }
   }
-  return null;
+  parts.push(cleaned.slice(start));
+  return parts.length === size && parts.every((part) => part.trim()) ? parts : null;
+}
+
+function parseMatrix(value: string): BoxedExpression[][] | null {
+  const expression = parse(value);
+  if (!expression || !isFunction(expression) || expression.operator !== "Matrix") return null;
+  const entries = expression.ops[0];
+  if (!isFunction(entries) || entries.operator !== "List" || entries.ops.length === 0) return null;
+  const rows = entries.ops.map((row) => isFunction(row) && row.operator === "List" ? row.ops : null);
+  if (rows.some((row) => row === null || row.length === 0 || row.length !== rows[0]?.length)) return null;
+  return rows as BoxedExpression[][];
+}
+
+function equalMatrices(actual: BoxedExpression[][], expected: BoxedExpression[][]): boolean {
+  return actual.length === expected.length && actual[0].length === expected[0].length &&
+    actual.every((row, i) => row.every((entry, j) => equalExpressions(entry.latex, expected[i][j].latex)));
+}
+
+function equalVectorDirections(actual: string[], expected: string[]): boolean {
+  if (actual.some((component) => {
+    const parsed = parse(component)!;
+    const value = parsed.N();
+    return parsed.freeVariables.length > 0 || !isNumber(value) || !Number.isFinite(value.re) || value.im !== 0;
+  })) return false;
+  if (actual.every((component) => equalExpressions(component, "0"))) return false;
+  const left = ce.box(["Multiply", parse(actual[0])!, parse(expected[1])!]);
+  const right = ce.box(["Multiply", parse(actual[1])!, parse(expected[0])!]);
+  return ce.box(["Subtract", left, right]).simplify().isSame(ce.number(0));
 }
 
 function equalExpressions(actual: string, expected: string): boolean {
@@ -220,10 +251,11 @@ function equalIntervals(actual: ParsedInterval, expected: ParsedInterval): boole
 
 export function isParseableAnswer(question: Question, latex: string): boolean {
   if (!latex.trim()) return false;
-  if (question.answer.kind === "ordered_pair") {
-    const tuple = splitTuple(latex);
-    return Boolean(tuple && parse(tuple[0]) && parse(tuple[1]));
+  if (["ordered_pair", "ordered_triple", "vector_direction"].includes(question.answer.kind)) {
+    const tuple = splitTuple(latex, question.answer.kind === "ordered_triple" ? 3 : 2);
+    return Boolean(tuple && tuple.every((component) => parse(component)));
   }
+  if (question.answer.kind === "matrix") return parseMatrix(latex) !== null;
   if (question.answer.kind === "interval") return parseInterval(latex) !== null;
   return parse(latex) !== null;
 }
@@ -242,11 +274,19 @@ export function validateAnswer(question: Question, latex: string): ValidationRes
   let correct = false;
   let normalizedAnswer = latex;
 
-  if (question.answer.kind === "ordered_pair") {
-    const actual = splitTuple(latex)!;
-    const expected = splitTuple(question.answer.latex)!;
-    correct = equalExpressions(actual[0], expected[0]) && equalExpressions(actual[1], expected[1]);
-    normalizedAnswer = `(${parse(actual[0])!.simplify().latex},${parse(actual[1])!.simplify().latex})`;
+  if (question.answer.kind === "ordered_pair" || question.answer.kind === "ordered_triple" || question.answer.kind === "vector_direction") {
+    const size = question.answer.kind === "ordered_triple" ? 3 : 2;
+    const actual = splitTuple(latex, size)!;
+    const expected = splitTuple(question.answer.latex, size)!;
+    correct = question.answer.kind === "vector_direction"
+      ? equalVectorDirections(actual, expected)
+      : actual.every((component, index) => equalExpressions(component, expected[index]));
+    normalizedAnswer = `(${actual.map((component) => parse(component)!.simplify().latex).join(",")})`;
+  } else if (question.answer.kind === "matrix") {
+    const actual = parseMatrix(latex)!;
+    const expected = parseMatrix(question.answer.latex)!;
+    correct = equalMatrices(actual, expected);
+    normalizedAnswer = latex;
   } else if (question.answer.kind === "interval") {
     const actualInterval = parseInterval(latex)!;
     const expectedInterval = parseInterval(question.answer.latex)!;

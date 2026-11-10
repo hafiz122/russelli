@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { generateQuestion } from "../../src/math/generators";
 import { createDefaultProgress } from "../../src/state/storage";
 import type { Difficulty, LocalProgressV1 } from "../../src/types";
-import { skills, skillIds } from "../../src/data/skills";
+import { algebraSkillIds, skills } from "../../src/data/skills";
 
 async function startPractice(page: Page, overrides: Partial<LocalProgressV1> = {}, path = "/practice/?topic=expressions") {
   await page.goto("/");
@@ -73,7 +73,7 @@ test("shared calibration presentations cover all eight topics without skipping a
   await expectRewards(page, 20, 2);
   await loadNext(page);
   await expect(page.locator(".practice-context .plain-kicker")).toHaveText("Calibration 2 of 8");
-  for (const skillId of skillIds.slice(1)) {
+  for (const skillId of algebraSkillIds.slice(1)) {
     await expect(page.locator(".practice-context h1")).toHaveText(skills.find((skill) => skill.id === skillId)!.title);
     await solve(page);
     if (skillId !== "functions") await loadNext(page);
@@ -81,7 +81,7 @@ test("shared calibration presentations cover all eight topics without skipping a
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("russelli.progress.v1")!));
   expect(stored.calibrationCompleted).toBe(true);
   expect(stored.calibrationIndex).toBe(8);
-  expect(stored.recentAttempts.map((attempt: { skillId: string }) => attempt.skillId)).toEqual(["expressions", ...skillIds]);
+  expect(stored.recentAttempts.map((attempt: { skillId: string }) => attempt.skillId)).toEqual(["expressions", ...algebraSkillIds]);
   expect(stored.recentAttempts.slice(0, 2).map((attempt: { calibrationIndex: number }) => attempt.calibrationIndex)).toEqual([0, 0]);
 });
 

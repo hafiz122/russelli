@@ -1,4 +1,4 @@
-import { skillIds } from "../data/skills";
+import { algebraSkillIds, linearAlgebraSkillIds, skillIds } from "../data/skills";
 import type { Attempt, LocalProgressV1, QuestionReward, RecentPresentation, SkillId } from "../types";
 
 export const STORAGE_KEY = "russelli.progress.v1";
@@ -27,6 +27,7 @@ export function createDefaultProgress(): LocalProgressV1 {
     recentSeeds: [],
     recentPresentations: [],
     preferredSkill: null,
+    preferredLinearSkill: null,
     totalPoints: 0,
     currentStreak: 0,
     bestStreak: 0,
@@ -65,7 +66,7 @@ function isRecentPresentation(value: unknown): value is RecentPresentation {
     typeof item.problemKey === "string" && item.problemKey.length > 0 &&
     typeof item.answerKey === "string" &&
     (item.calibrationIndex === null ||
-      (Number.isInteger(item.calibrationIndex) && (item.calibrationIndex ?? -1) >= 0 && (item.calibrationIndex ?? 0) < skillIds.length));
+      (algebraSkillIds.includes(item.skillId as SkillId) && Number.isInteger(item.calibrationIndex) && (item.calibrationIndex ?? -1) >= 0 && (item.calibrationIndex ?? 0) < algebraSkillIds.length));
 }
 
 function rewardCount(value: unknown): number {
@@ -105,7 +106,7 @@ export function loadProgress(): { progress: LocalProgressV1; recovered: boolean 
     }
 
     base.calibrationCompleted = Boolean(value.calibrationCompleted);
-    base.calibrationIndex = Math.max(0, Math.min(skillIds.length, Number(value.calibrationIndex) || 0));
+    base.calibrationIndex = Math.max(0, Math.min(algebraSkillIds.length, Number(value.calibrationIndex) || 0));
     base.recentAttempts = Array.isArray(value.recentAttempts) ? value.recentAttempts.filter(isAttempt).slice(-80) : [];
     base.recentSeeds = Array.isArray(value.recentSeeds)
       ? value.recentSeeds.filter((seed) => Number.isInteger(seed)).slice(-40)
@@ -113,7 +114,8 @@ export function loadProgress(): { progress: LocalProgressV1; recovered: boolean 
     base.recentPresentations = Array.isArray(value.recentPresentations)
       ? value.recentPresentations.filter(isRecentPresentation).slice(-40)
       : [];
-    base.preferredSkill = isSkillId(value.preferredSkill) ? value.preferredSkill : null;
+    base.preferredSkill = isSkillId(value.preferredSkill) && algebraSkillIds.includes(value.preferredSkill) ? value.preferredSkill : null;
+    base.preferredLinearSkill = isSkillId(value.preferredLinearSkill) && linearAlgebraSkillIds.includes(value.preferredLinearSkill) ? value.preferredLinearSkill : null;
     base.totalPoints = rewardCount(value.totalPoints);
     base.currentStreak = rewardCount(value.currentStreak);
     base.bestStreak = Math.max(base.currentStreak, rewardCount(value.bestStreak));

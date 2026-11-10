@@ -59,7 +59,7 @@ test("completes the paper-first retry, solution, and progress flow", async ({ pa
   await page.getByRole("button", { name: "Reset local progress" }).click();
   await expect(page.getByRole("heading", { name: "Reset this progress record?" })).toBeVisible();
   await page.getByRole("button", { name: "Keep my progress" }).click();
-  await expect(page.getByRole("heading", { name: "Your algebra record" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your practice record" })).toBeVisible();
 });
 
 test("renders the answer placeholder as spaced, upright text", async ({ page }) => {

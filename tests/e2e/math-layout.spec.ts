@@ -39,7 +39,11 @@ for (const scenario of [
   { skill: "functions", seed: 23594, difficulty: "easy" },
   { skill: "lines_systems", seed: 3, difficulty: "hard" },
   { skill: "lines_systems", seed: 2, difficulty: "hard" },
-  { skill: "rational", seed: 2, difficulty: "hard" }
+  { skill: "rational", seed: 2, difficulty: "hard" },
+  { skill: "matrices", seed: 3, difficulty: "hard" },
+  { skill: "linear_systems", seed: 2, difficulty: "hard" },
+  { skill: "determinants_inverses", seed: 2, difficulty: "hard" },
+  { skill: "eigen", seed: 3, difficulty: "hard" }
 ] satisfies { skill: SkillId; seed: number; difficulty: "easy" | "hard" }[]) {
   test(`fits ${scenario.skill} seed ${scenario.seed} inside the question box when resized`, async ({ page }) => {
     const progress = createDefaultProgress();
@@ -49,7 +53,9 @@ for (const scenario of [
       localStorage.setItem("russelli.progress.v1", JSON.stringify(initial));
     }, progress);
     await page.setViewportSize({ width: 320, height: 900 });
-    await page.goto(`/practice/?topic=${scenario.skill}`);
+    const path = ["matrices", "linear_systems", "determinants_inverses", "eigen"].includes(scenario.skill)
+      ? "/linear-algebra/" : "/practice/";
+    await page.goto(`${path}?topic=${scenario.skill}`);
     await expect(page.locator("math-field.problem-equation")).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
     if (scenario.seed === 23594) {
@@ -65,7 +71,10 @@ for (const scenario of [
 
     await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
     await expectExpressionFits(page);
-    expect(await page.evaluate(() => document.body.scrollWidth <= window.innerWidth)).toBe(true);
+    const overflow = await page.evaluate(() => [...document.querySelectorAll("body *")]
+      .filter((element) => element.getBoundingClientRect().right > window.innerWidth + 1)
+      .slice(0, 12).map((element) => `${element.tagName}.${element.className} ${Math.round(element.getBoundingClientRect().right)}`));
+    expect(overflow).toEqual([]);
   });
 }
 

@@ -1,6 +1,6 @@
 # russelli.
 
-Paper-first algebra practice for college beginners. The site presents one problem at a time: work through it in a notebook, enter the final mathematical answer, and check it in the browser.
+Paper-first algebra and linear algebra practice for college beginners. The site presents one problem at a time: work through it in a notebook, enter the final mathematical answer, and check it in the browser.
 
 Live site: [hafiz122.github.io/russelli](https://hafiz122.github.io/russelli/)
 
@@ -41,10 +41,10 @@ This record shows one accepted answer submitted during the screenshot session.
 2. Solve the displayed problem on paper. Use the math field and its virtual keyboard to enter your final answer.
 3. Select **Check answer** or press Enter. Incomplete input keeps the check button disabled; an incorrect answer can be edited and checked again.
 4. Reveal hints one at a time or open the worked solution when you need help. You can also skip a question.
-5. Continue with the adaptive queue, or select a topic under **Practice focus** for focused practice.
+5. Continue with the adaptive algebra queue, or select a topic under **Practice focus** for focused practice. Open **Linear algebra** for its separate guided queue and topic choices.
 6. Open **Progress** to review topic readiness and recent answer checks. **Reset local progress** opens a confirmation dialog before clearing the record.
 
-The adaptive queue considers mastery, how recently a topic appeared, and prerequisite readiness. Difficulty moves between easy, medium, and hard as mastery changes. Within a topic, consecutive questions in one tab use different problem forms. The app also compares new questions with recently displayed problems to reduce repeats. First-attempt success increases mastery more than success after retries or hints; incorrect checks and skips reduce it.
+The algebra adaptive queue considers mastery, how recently a topic appeared, and prerequisite readiness. The linear algebra queue starts with vectors and advances through its five topics as readiness reaches 0.45; after that, it adapts within the linear algebra track. Difficulty moves between easy, medium, and hard as mastery changes. Within a topic, consecutive questions in one tab use different problem forms. The app also compares new questions with recently displayed problems to reduce repeats. First-attempt success increases mastery more than success after retries or hints; incorrect checks and skips reduce it.
 
 ### Points and streaks
 
@@ -67,16 +67,28 @@ Practice shows your points and current streak beside the problem. Progress also 
 | Rational expressions | Cancel common factors and solve rational equations |
 | Functions | Evaluate compositions and inverse functions |
 
+The separate linear algebra track covers:
+
+| Topic | Current practice |
+| --- | --- |
+| Vectors & dot products | Combine two-component vectors and find three-component dot products |
+| Matrix arithmetic | Add and multiply two-by-two matrices |
+| Systems & row reduction | Solve three-variable systems and reduce two-by-three augmented matrices |
+| Determinants & inverses | Find two-by-two or three-by-three determinants and two-by-two inverses |
+| Eigenvalues & eigenvectors | Find two distinct real eigenvalues or a nonzero eigenvector for a given eigenvalue |
+
 Follow each problem's answer instructions:
 
 - Enter numbers, fractions, expressions, or equations as requested. The validator compares mathematical equivalence rather than literal text.
 - Enter system solutions as `(x, y)` and quadratic roots as `(smaller, larger)`.
+- Enter three-variable system solutions as `(x, y, z)`. Matrix answers use the visible matrix template; the checker compares dimensions and equivalent entries.
+- Enter eigenvalue pairs in ascending order. Any nonzero scalar multiple of a valid eigenvector is accepted.
 - Use interval notation for inequalities, such as `[2, ∞)`. Infinity always takes a parenthesis. The validator also supports equivalent one-sided inequality notation.
 - Keep a factorization in factored form when the question requests it, and cancel common factors when simplifying a rational expression. Equivalence alone does not satisfy these form requirements.
 
 ### Local progress
 
-The application runs entirely in the browser, with no account or backend service. It saves calibration state, mastery scores, topic preference, recent attempts, recent seeds, recently displayed questions, cumulative points, current and best streaks, and the current question's reward status in `localStorage` under `russelli.progress.v1`. A tab also remembers its last problem form for each topic in `sessionStorage`. Older records retain their learning history and start with zero rewards; historical answers do not receive points retroactively. Invalid reward fields fall back to safe defaults without removing valid learning history.
+The application runs entirely in the browser, with no account or backend service. It saves algebra calibration state, mastery scores, separate algebra and linear algebra topic preferences, recent attempts, recent seeds, recently displayed questions, cumulative points, current and best streaks, and the current question's reward status in `localStorage` under `russelli.progress.v1`. A tab also remembers its last problem form for each topic in `sessionStorage`. Older records retain their learning history and gain default readiness for the new linear algebra topics. Historical answers do not receive points retroactively. Invalid reward fields fall back to safe defaults without removing valid learning history.
 
 On the same browser profile and site origin, the app also reads the legacy `nurkh.progress.v1` key when no current record exists, preserving progress saved before the rename. Subsequent saves use `russelli.progress.v1`; a reset removes the legacy record and saves the cleared current record with a new reset identifier.
 
@@ -119,12 +131,13 @@ npm run preview
 | --- | --- |
 | `/` | Introduction and topic index |
 | `/practice/` | Calibration, adaptive practice, and answer checking |
+| `/linear-algebra/` | Guided linear algebra practice and focused topics |
 | `/progress/` | Local readiness scores, recent checks, and reset controls |
 | `/privacy/` | How local progress and site visits are handled |
 | `/terms/` | Terms for study use and automated checking |
 | `/changelog/` | Dated posts about features and fixes, newest first |
 
-Topic links use the skill ID as a query parameter, for example `/practice/?topic=functions`. The IDs are defined in [src/data/skills.ts](src/data/skills.ts).
+Topic links use the skill ID as a query parameter, for example `/practice/?topic=functions` or `/linear-algebra/?topic=matrices`. The IDs are defined in [src/data/skills.ts](src/data/skills.ts).
 
 ### Posting updates
 
@@ -139,7 +152,7 @@ npm run test:e2e
 npm run build
 ```
 
-The unit suite covers answer equivalence, answer-form constraints, calibration, mastery updates, scoring milestones, reward eligibility, duplicate awards, local-storage compatibility and recovery, serialized updates, and rejection of writes from before a reset. Generator tests check reproducibility and acceptance of the generated answer for 1,000 seeds per topic and difficulty: 24,000 combinations across eight topics and three difficulty levels. Additional regressions check rational-equation domain restrictions and worked solutions with negative function inputs.
+The unit suite covers answer equivalence, answer-form constraints, calibration, mastery updates, scoring milestones, reward eligibility, duplicate awards, local-storage compatibility and recovery, serialized updates, and rejection of writes from before a reset. Generator tests check reproducibility and acceptance of the generated answer for 1,000 seeds per topic and difficulty: 39,000 combinations across thirteen topics and three difficulty levels. Separate linear algebra tests calculate the results independently across the same seed range.
 
 Playwright runs desktop Chrome and Pixel 7 browser profiles. Its tests cover retries, hints, worked solutions, progress navigation, topic selection, MathLive input, interval handling, and accepted-answer feedback. Reward tests cover milestone bonuses, duplicate Enter submissions, persistence, resets, rule disclosures, and fixed problems across difficulty thresholds. Multi-tab regressions cover concurrent answers, delayed storage notifications, reset propagation, stale submissions after reset, solution handling, and retrying a failed save. Accessibility checks cover the home, practice, and progress pages; layout checks include large reward counts, widths from 320 to 1280px, 200% text sizing, control sizes, keyboard focus, and reduced motion. The test configuration starts its own Vite server at `http://127.0.0.1:4173`; you do not need to start one separately.
 
@@ -158,7 +171,7 @@ VITE_BASE_PATH=/russelli/ npm run preview
 
 Open the preview URL with `/russelli/` appended. `VITE_BASE_PATH` defaults to `/`; set it to the deployment subdirectory, including leading and trailing slashes, when hosting under another path. Build again after changing it.
 
-Vite emits separate HTML entry points for the home, practice, progress, changelog, privacy, and terms pages. Other static hosts should publish the full `dist/` directory and serve each page's `index.html` at its directory URL.
+Vite emits separate HTML entry points for the home, algebra, linear algebra, progress, changelog, privacy, and terms pages. Other static hosts should publish the full `dist/` directory and serve each page's `index.html` at its directory URL.
 
 ## Code structure
 
@@ -171,6 +184,7 @@ The stack is React and TypeScript with Vite, MathLive for mathematical input and
 | `src/data/skills.ts` | Topic definitions, IDs, and prerequisites |
 | `src/types.ts` | Question, answer, attempt, generator, and progress contracts |
 | `src/math/generators.ts` | Seeded question generators, hints, and worked solutions |
+| `src/math/linearAlgebra.ts` | Seeded linear algebra forms and worked solutions |
 | `src/math/rng.ts`, `src/math/format.ts` | Deterministic random values and math formatting |
 | `src/math/validator.ts` | Parsing, equivalence checks, and required answer forms |
 | `src/state/adaptive.ts` | Topic selection, difficulty, mastery, and attempt recording |

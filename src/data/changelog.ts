@@ -8,6 +8,17 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    id: "linear-algebra",
+    date: "2026-11-09",
+    title: "Linear algebra practice",
+    summary: "A separate guided track now covers computational linear algebra from vectors through eigenvectors.",
+    changes: [
+      "Practice five connected topics with paper-first questions, hints, and worked solutions.",
+      "Enter exact matrix answers with a matrix template, and check eigenvectors up to nonzero scaling.",
+      "Existing algebra calibration and saved progress remain available."
+    ]
+  },
+  {
     id: "changelog",
     date: "2026-11-05",
     title: "A place for updates",

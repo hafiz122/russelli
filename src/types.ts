@@ -6,7 +6,14 @@ export type SkillId =
   | "polynomials"
   | "factoring_quadratics"
   | "rational"
-  | "functions";
+  | "functions"
+  | "vectors"
+  | "matrices"
+  | "linear_systems"
+  | "determinants_inverses"
+  | "eigen";
+
+export type TrackId = "algebra" | "linear_algebra";
 
 export type Difficulty = "easy" | "medium" | "hard";
 
@@ -15,13 +22,17 @@ export type AnswerKind =
   | "expression"
   | "equation"
   | "ordered_pair"
-  | "interval";
+  | "ordered_triple"
+  | "interval"
+  | "matrix"
+  | "vector_direction";
 
 export interface AnswerSpec {
   latex: string;
   kind: AnswerKind;
   requiresFactoredForm?: boolean;
   forbiddenFactorLatex?: string;
+  matrixShape?: { rows: number; cols: number };
 }
 
 export interface Question {
@@ -80,6 +91,7 @@ export interface SkillDefinition {
   shortTitle: string;
   description: string;
   prerequisites: SkillId[];
+  track: TrackId;
 }
 
 export interface LocalProgressV1 {
@@ -92,6 +104,7 @@ export interface LocalProgressV1 {
   recentSeeds: number[];
   recentPresentations: RecentPresentation[];
   preferredSkill: SkillId | null;
+  preferredLinearSkill: SkillId | null;
   totalPoints: number;
   currentStreak: number;
   bestStreak: number;

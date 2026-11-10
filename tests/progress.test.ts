@@ -68,6 +68,37 @@ describe("local progress", () => {
     expect(chooseSkill(setPreferredSkill({ ...correct, calibrationCompleted: true }, "functions"))).toBe("functions");
   });
 
+  it("guides linear algebra by readiness without changing algebra calibration", () => {
+    let progress = createDefaultProgress();
+    expect(chooseSkill(progress, "linear_algebra")).toBe("vectors");
+    progress = recordAttempt(progress, attempt({ skillId: "vectors", calibrationIndex: null }));
+    expect(progress.calibrationIndex).toBe(0);
+    expect(chooseSkill(progress, "linear_algebra")).toBe("vectors");
+    progress = recordAttempt(progress, attempt({ skillId: "vectors", calibrationIndex: null }));
+    expect(chooseSkill(progress, "linear_algebra")).toBe("matrices");
+    progress = setPreferredSkill(progress, "eigen", "linear_algebra");
+    expect(chooseSkill(progress, "linear_algebra")).toBe("eigen");
+    expect(chooseSkill(progress)).toBe("expressions");
+  });
+
+  it("loads old algebra progress with new linear algebra defaults", () => {
+    const old = createDefaultProgress();
+    old.calibrationCompleted = true;
+    old.calibrationIndex = 8;
+    old.mastery.expressions = 0.9;
+    const { preferredLinearSkill, ...prior } = old;
+    for (const id of ["vectors", "matrices", "linear_systems", "determinants_inverses", "eigen"] as const) {
+      delete (prior.mastery as Partial<typeof prior.mastery>)[id];
+    }
+    window.localStorage.setItem("russelli.progress.v1", JSON.stringify(prior));
+    const restored = loadProgress().progress;
+    expect(restored.calibrationCompleted).toBe(true);
+    expect(restored.calibrationIndex).toBe(8);
+    expect(restored.mastery.expressions).toBe(0.9);
+    expect(restored.mastery.vectors).toBe(0.35);
+    expect(restored.preferredLinearSkill).toBeNull();
+  });
+
   it("selects difficulty from mastery", () => {
     expect(difficultyFor(0.2)).toBe("easy");
     expect(difficultyFor(0.6)).toBe("medium");

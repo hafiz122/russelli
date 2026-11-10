@@ -13,9 +13,10 @@ interface MathAnswerInputProps {
   disabled?: boolean;
   readOnly?: boolean;
   label: string;
+  matrixShape?: { rows: number; cols: number };
 }
 
-export function MathAnswerInput({ value, onChange, onSubmit, disabled = false, readOnly = false, label }: MathAnswerInputProps) {
+export function MathAnswerInput({ value, onChange, onSubmit, disabled = false, readOnly = false, label, matrixShape }: MathAnswerInputProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const fieldRef = useRef<MathfieldElement | null>(null);
   const onChangeRef = useRef(onChange);
@@ -73,7 +74,23 @@ export function MathAnswerInput({ value, onChange, onSubmit, disabled = false, r
     if (fieldRef.current) fieldRef.current.readOnly = readOnly;
   }, [readOnly]);
 
-  return <div ref={hostRef} className="math-answer-host" />;
+  function insertMatrix() {
+    const field = fieldRef.current;
+    if (!field || !matrixShape || disabled || readOnly) return;
+    const template = `\\begin{bmatrix}${Array.from({ length: matrixShape.rows }, () =>
+      Array.from({ length: matrixShape.cols }, () => "\\placeholder{}").join("&")
+    ).join("\\\\")}\\end{bmatrix}`;
+    field.focus();
+    field.insert(template);
+    onChange(field.getValue("latex"));
+  }
+
+  return <div className="math-answer-control">
+    <div ref={hostRef} className="math-answer-host" />
+    {matrixShape && <button className="matrix-insert-button" type="button" onClick={insertMatrix} disabled={disabled || readOnly}>
+      Insert {matrixShape.rows} × {matrixShape.cols} matrix
+    </button>}
+  </div>;
 }
 
 interface StaticMathProps {

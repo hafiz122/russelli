@@ -1,5 +1,5 @@
-import { skills, skillIds } from "../data/skills";
-import type { Attempt, Difficulty, LocalProgressV1, SkillId } from "../types";
+import { algebraSkillIds, linearAlgebraSkillIds, skills } from "../data/skills";
+import type { Attempt, Difficulty, LocalProgressV1, SkillId, TrackId } from "../types";
 import { applyRewardEvent } from "./rewards";
 
 export function difficultyFor(score: number): Difficulty {
@@ -19,11 +19,18 @@ function lastSeenIndex(progress: LocalProgressV1, skillId: SkillId): number {
   return reverseIndex < 0 ? 100 : reverseIndex;
 }
 
-export function chooseSkill(progress: LocalProgressV1): SkillId {
-  if (!progress.calibrationCompleted) return skillIds[progress.calibrationIndex] ?? skillIds[0];
-  if (progress.preferredSkill) return progress.preferredSkill;
+export function chooseSkill(progress: LocalProgressV1, track: TrackId = "algebra"): SkillId {
+  if (track === "linear_algebra") {
+    if (progress.preferredLinearSkill) return progress.preferredLinearSkill;
+    const next = linearAlgebraSkillIds.find((id) => progress.mastery[id] < 0.45);
+    if (next) return next;
+  } else {
+    if (!progress.calibrationCompleted) return algebraSkillIds[progress.calibrationIndex] ?? algebraSkillIds[0];
+    if (progress.preferredSkill) return progress.preferredSkill;
+  }
+  const candidates = track === "algebra" ? algebraSkillIds : linearAlgebraSkillIds;
 
-  return [...skillIds].sort((left, right) => {
+  return [...candidates].sort((left, right) => {
     const leftPriority =
       (1 - progress.mastery[left]) * 0.65 +
       Math.min(lastSeenIndex(progress, left) / 12, 1) * 0.2 +
@@ -45,16 +52,17 @@ export function nextSeed(progress: LocalProgressV1, now = Date.now()): number {
 export function recordAttempt(progress: LocalProgressV1, attempt: Attempt): LocalProgressV1 {
   const delta = attempt.correct ? (attempt.attemptCount === 1 ? 0.08 : 0.04) : -0.07;
   const nextScore = Math.max(0, Math.min(1, progress.mastery[attempt.skillId] + delta));
-  const completesCurrentSlot = attempt.calibrationIndex === progress.calibrationIndex &&
+  const completesCurrentSlot = attempt.calibrationIndex !== null && attempt.calibrationIndex !== undefined &&
+    algebraSkillIds.includes(attempt.skillId) && attempt.calibrationIndex === progress.calibrationIndex &&
     (attempt.correct || attempt.solutionRevealed);
   const nextCalibrationIndex = progress.calibrationCompleted || !completesCurrentSlot
     ? progress.calibrationIndex
-    : Math.min(skillIds.length, progress.calibrationIndex + (attempt.correct || attempt.solutionRevealed ? 1 : 0));
+    : Math.min(algebraSkillIds.length, progress.calibrationIndex + (attempt.correct || attempt.solutionRevealed ? 1 : 0));
 
   return applyRewardEvent({
     ...progress,
     calibrationIndex: nextCalibrationIndex,
-    calibrationCompleted: progress.calibrationCompleted || nextCalibrationIndex >= skillIds.length,
+    calibrationCompleted: progress.calibrationCompleted || nextCalibrationIndex >= algebraSkillIds.length,
     mastery: { ...progress.mastery, [attempt.skillId]: nextScore },
     recentAttempts: [...progress.recentAttempts, attempt].slice(-80),
     recentSeeds: [...progress.recentSeeds, attempt.seed].slice(-40)
@@ -68,7 +76,7 @@ export function recordAttempt(progress: LocalProgressV1, attempt: Attempt): Loca
   });
 }
 
-export function setPreferredSkill(progress: LocalProgressV1, skillId: SkillId | null): LocalProgressV1 {
-  return { ...progress, preferredSkill: skillId };
+export function setPreferredSkill(progress: LocalProgressV1, skillId: SkillId | null, track: TrackId = "algebra"): LocalProgressV1 {
+  return track === "algebra" ? { ...progress, preferredSkill: skillId } : { ...progress, preferredLinearSkill: skillId };
 }
 

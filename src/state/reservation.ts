@@ -1,11 +1,12 @@
 import { generateQuestion } from "../math/generators";
-import type { LocalProgressV1, Question, SkillId } from "../types";
+import type { LocalProgressV1, Question, SkillId, TrackId } from "../types";
 import { chooseSkill, difficultyFor } from "./adaptive";
 import { selectQuestion } from "./questionSelection";
 
 export interface ReservationOptions {
   presentationId: string;
   topicOverride: SkillId | null;
+  track?: TrackId;
   lastForms: Partial<Record<SkillId, string>>;
   randomUint32?: () => number;
 }
@@ -32,7 +33,8 @@ export function reservePresentation(progress: LocalProgressV1, options: Reservat
   const currentHistory = existing
     ? progress.recentPresentations.filter((item) => item.presentationId !== options.presentationId)
     : progress.recentPresentations;
-  const skillId = options.topicOverride ?? chooseSkill(progress);
+  const track = options.track ?? "algebra";
+  const skillId = options.topicOverride ?? chooseSkill(progress, track);
   const difficulty = difficultyFor(progress.mastery[skillId]);
   const { question, presentation } = selectQuestion({
     skillId,
@@ -43,7 +45,7 @@ export function reservePresentation(progress: LocalProgressV1, options: Reservat
     randomUint32: options.randomUint32
   });
 
-  const calibrationIndex = progress.calibrationCompleted ? null : progress.calibrationIndex;
+  const calibrationIndex = track === "linear_algebra" || progress.calibrationCompleted ? null : progress.calibrationIndex;
   return {
     progress: { ...progress, recentPresentations: [...currentHistory, { ...presentation, calibrationIndex }].slice(-40) },
     question,

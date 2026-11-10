@@ -13,6 +13,7 @@ export default defineConfig({
       input: {
         home: resolve(projectDirectory, "index.html"),
         practice: resolve(projectDirectory, "practice/index.html"),
+        linearAlgebra: resolve(projectDirectory, "linear-algebra/index.html"),
         progress: resolve(projectDirectory, "progress/index.html"),
         changelog: resolve(projectDirectory, "changelog/index.html"),
         privacy: resolve(projectDirectory, "privacy/index.html"),

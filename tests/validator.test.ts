@@ -69,6 +69,29 @@ describe("answer equivalence", () => {
     expect(validateAnswer(orderedPair, "(-3,2)").correct).toBe(false);
   });
 
+  it("checks triples component by component", () => {
+    const triple = question("(1,-2,3)", "ordered_triple");
+    expect(validateAnswer(triple, "(\\frac{2}{2},-2,3)").correct).toBe(true);
+    expect(validateAnswer(triple, "(1,3,-2)").correct).toBe(false);
+    expect(validateAnswer(triple, "(1,-2)").parseable).toBe(false);
+  });
+
+  it("checks matrix dimensions and equivalent entries", () => {
+    const matrix = question("\\begin{bmatrix}1&\\frac{1}{2}\\\\0&-3\\end{bmatrix}", "matrix");
+    expect(validateAnswer(matrix, "\\begin{pmatrix}1&0.5\\\\0&-3\\end{pmatrix}").correct).toBe(true);
+    expect(validateAnswer(matrix, "\\begin{bmatrix}1&\\frac{1}{2}\\\\-3&0\\end{bmatrix}").correct).toBe(false);
+    expect(validateAnswer(matrix, "\\begin{bmatrix}1&\\frac{1}{2}&0\\\\0&-3&0\\end{bmatrix}").correct).toBe(false);
+  });
+
+  it("accepts nonzero scalar multiples of an eigenvector", () => {
+    const vector = question("(2,-3)", "vector_direction");
+    expect(validateAnswer(vector, "(-4,6)").correct).toBe(true);
+    expect(validateAnswer(vector, "(\\frac{1}{2},-\\frac{3}{4})").correct).toBe(true);
+    expect(validateAnswer(vector, "(0,0)").correct).toBe(false);
+    expect(validateAnswer(vector, "(2,3)").correct).toBe(false);
+    expect(validateAnswer(vector, "(2t,-3t)").correct).toBe(false);
+  });
+
   it("accepts interval and inequality forms of the same set", () => {
     const interval = question("[2,\\infty)", "interval");
     expect(validateAnswer(interval, "[\\frac{4}{2},\\infty)").correct).toBe(true);
