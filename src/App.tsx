@@ -490,7 +490,7 @@ function PrivacyPage() {
       <header className="legal-heading">
         <h1>Privacy notice</h1>
         <p>How russelli. handles your practice record and site visits.</p>
-        <p className="legal-date">Last updated <time dateTime="2026-11-09">9 November 2026</time></p>
+        <p className="legal-date">Last updated <time dateTime="2026-11-10">10 November 2026</time></p>
       </header>
 
       <section aria-labelledby="privacy-local">
@@ -524,7 +524,7 @@ function TermsPage() {
       <header className="legal-heading">
         <h1>Terms of use</h1>
         <p>A few ground rules for using russelli. to practice algebra.</p>
-        <p className="legal-date">Last updated <time dateTime="2026-11-09">9 November 2026</time></p>
+        <p className="legal-date">Last updated <time dateTime="2026-11-10">10 November 2026</time></p>
       </header>
 
       <section aria-labelledby="terms-use">
@@ -611,16 +611,19 @@ function ProgressPage({ progress, resetProgress, saving }: { progress: LocalProg
                   <h3 className="mastery-track-title">{trackId === "algebra" ? "Algebra" : "Linear algebra"}</h3>
                   {skills.filter((skill) => skill.track === trackId).map((skill) => {
                     const score = progress.mastery[skill.id];
-                    const label = score < 0.45 ? "Building" : score <= 0.75 ? "Developing" : "Ready for challenge";
+                    const hasAnswerRecord = attempts.some((attempt) => attempt.skillId === skill.id) || score !== 0.35;
+                    const label = !hasAnswerRecord ? "No answer on record" : score < 0.45 ? "Building" : score <= 0.75 ? "Developing" : "Ready for challenge";
                     return (
                       <article key={skill.id} className="mastery-row">
                         <div>
                           <h4>{skill.title}</h4>
                           <p>{label}</p>
                         </div>
-                        <div className="mastery-meter" role="meter" aria-label={`${skill.title}: ${label}`} aria-valuemin={0} aria-valuemax={1} aria-valuenow={score}>
-                          <span style={{ width: `${score * 100}%` }} />
-                        </div>
+                        {hasAnswerRecord ? (
+                          <div className="mastery-meter" role="meter" aria-label={`${skill.title}: ${label}`} aria-valuemin={0} aria-valuemax={1} aria-valuenow={score}>
+                            <span style={{ width: `${score * 100}%` }} />
+                          </div>
+                        ) : <span className="mastery-unstarted">Readiness appears after an answer.</span>}
                         <a href={siteHref(`${trackId === "algebra" ? "/practice/" : "/linear-algebra/"}?topic=${skill.id}`)}>Practice this topic</a>
                       </article>
                     );

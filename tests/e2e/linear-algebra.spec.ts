@@ -10,6 +10,7 @@ test("opens the guided track and checks a matrix final answer", async ({ page })
 
   await page.locator("select").selectOption("matrices");
   await expect(page.getByRole("heading", { name: "Matrix arithmetic" })).toBeVisible();
+  await expect(page.locator("math-field.problem-equation")).toHaveAttribute("aria-label", /row 1 column 1/i);
   const seed = parseInt((await page.locator(".problem-code").innerText()).split(" ")[1], 36);
   const expected = generateQuestion("matrices", seed, "easy").answer.latex;
   const insert = page.getByRole("button", { name: "Insert 2 × 2 matrix" });
@@ -29,11 +30,16 @@ test("opens the guided track and checks a matrix final answer", async ({ page })
   }, expected);
   await page.getByRole("button", { name: "Check answer", exact: true }).click();
   await expect(page.getByText("Answer accepted.", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Show worked solution" }).click();
+  await expect(page.locator(".worked-solution math-field.static-math").first()).toHaveAttribute("aria-label", /Solution step 1 .*row 1 column 1/i);
 
   await page.getByRole("link", { name: "Progress", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Linear algebra", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Matrix arithmetic" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Algebra", exact: true })).toBeVisible();
+  const untouched = page.locator(".mastery-row").filter({ has: page.getByRole("heading", { name: "Eigenvalues & eigenvectors" }) });
+  await expect(untouched.getByText("No answer on record")).toBeVisible();
+  await expect(untouched.getByRole("meter")).toHaveCount(0);
 });
 
 test("matrix entry works by touch and the layout fits narrow and zoomed screens", async ({ page }, testInfo) => {
@@ -46,7 +52,7 @@ test("matrix entry works by touch and the layout fits narrow and zoomed screens"
   await expect.poll(() => page.locator("math-field.math-answer-field").evaluate((element) =>
     (element as HTMLElement & { value: string }).value)).toContain("\\begin{bmatrix}");
   await page.goto("/linear-algebra/?topic=linear_systems");
-  for (const width of [320, 360, 640, 768, 1280]) {
+  for (const width of [320, 360, 640, 752, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth), `${width}px`).toBeLessThanOrEqual(width);
     const fits = await page.locator("math-field.problem-equation").evaluate((field) => {
@@ -68,9 +74,15 @@ test("home track index reflows without hiding content", async ({ page }) => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth), `${width}px`).toBeLessThanOrEqual(width);
     await expect(page.getByRole("link", { name: "Practice linear algebra" })).toBeVisible();
   }
-  await page.setViewportSize({ width: 320, height: 900 });
-  await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  for (const width of [320, 752]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+    const clipped = await page.locator(".linear-track-intro li").evaluateAll((items) => items.some((item) =>
+      item.getBoundingClientRect().right > document.documentElement.clientWidth + 1
+    ));
+    expect(clipped, `${width}px at 200% text`).toBe(false);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  }
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations.filter((violation) => ["serious", "critical"].includes(violation.impact ?? ""))).toEqual([]);
 });

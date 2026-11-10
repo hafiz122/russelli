@@ -40,6 +40,7 @@ describe("linear algebra generators", () => {
           const q = generators[skillId].generate(seed, difficulty);
           expect(q.workedSolution.at(-1), q.id).toContain(q.answer.latex);
           expect(q.workedSolution.join(" "), q.id).not.toMatch(/NaN|Infinity|undefined/);
+          if (q.formId === "eigenvector") expect(q.workedSolution[0], q.id).not.toMatch(/A--\d+I/);
           const input = matrices(q.promptLatex);
           const output = matrices(q.answer.latex);
           const answer = tuple(q.answer.latex);

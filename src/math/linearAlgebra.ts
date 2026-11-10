@@ -249,7 +249,7 @@ const eigen: QuestionGenerator = {
       answer: { latex: `(${direction.join(",")})`, kind: "vector_direction" },
       hints: ["Solve (A − λI)v = 0.", "One coordinate can be chosen freely; the zero vector is not an eigenvector."],
       workedSolution: [
-        `(A-${lambda}I)\\mathbf{v}=\\mathbf{0}`,
+        `(A-(${lambda})I)\\mathbf{v}=\\mathbf{0}`,
         `${nonzeroRow[0]}x${signedTerm(nonzeroRow[1], "y")}=0`,
         `\\boxed{(${direction.join(",")})}`
       ]

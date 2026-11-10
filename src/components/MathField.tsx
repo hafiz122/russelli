@@ -110,8 +110,9 @@ export function StaticMath({ latex, label, className = "", fitToContainer = fals
     field.readOnly = true;
     field.value = latex;
     field.className = `static-math ${className}`.trim();
-    field.setAttribute("aria-label", label ?? latex);
     host.append(field);
+    const spokenMath = field.getValue("spoken").trim();
+    field.setAttribute("aria-label", label ? `${label} ${spokenMath || latex}` : spokenMath || latex);
     if (!fitToContainer) return () => field.remove();
 
     const clauses = latex.split(/,\s*\\quad\s*/);

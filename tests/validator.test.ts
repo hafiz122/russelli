@@ -74,6 +74,8 @@ describe("answer equivalence", () => {
     expect(validateAnswer(triple, "(\\frac{2}{2},-2,3)").correct).toBe(true);
     expect(validateAnswer(triple, "(1,3,-2)").correct).toBe(false);
     expect(validateAnswer(triple, "(1,-2)").parseable).toBe(false);
+    expect(validateAnswer(triple, "(1,-2,3").parseable).toBe(false);
+    expect(validateAnswer(triple, "(1,-2,3]").parseable).toBe(false);
   });
 
   it("checks matrix dimensions and equivalent entries", () => {
@@ -90,6 +92,8 @@ describe("answer equivalence", () => {
     expect(validateAnswer(vector, "(0,0)").correct).toBe(false);
     expect(validateAnswer(vector, "(2,3)").correct).toBe(false);
     expect(validateAnswer(vector, "(2t,-3t)").correct).toBe(false);
+    expect(validateAnswer(vector, "(-4,6]").parseable).toBe(false);
+    expect(validateAnswer(vector, "(-4,6").parseable).toBe(false);
   });
 
   it("accepts interval and inequality forms of the same set", () => {

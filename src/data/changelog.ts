@@ -9,7 +9,7 @@ export interface ChangelogEntry {
 export const changelog: ChangelogEntry[] = [
   {
     id: "linear-algebra",
-    date: "2026-11-09",
+    date: "2026-11-10",
     title: "Linear algebra practice",
     summary: "A separate guided track now covers computational linear algebra from vectors through eigenvectors.",
     changes: [

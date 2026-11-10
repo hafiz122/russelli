@@ -25,21 +25,28 @@ function parse(value: string, canonical = true): BoxedExpression | null {
 function splitTuple(value: string, size = 2): string[] | null {
   const cleaned = value
     .replace(/\\left|\\right/g, "")
-    .replace(/^\s*[([]/, "")
-    .replace(/[)\]]\s*$/, "");
+    .trim();
+  const opener = cleaned[0];
+  const closer = cleaned.at(-1);
+  const hasOpen = opener === "(" || opener === "[";
+  const hasClose = closer === ")" || closer === "]";
+  if (hasOpen !== hasClose || (hasOpen && !(
+    (opener === "(" && closer === ")") || (opener === "[" && closer === "]")
+  ))) return null;
+  const body = hasOpen ? cleaned.slice(1, -1) : cleaned;
   let depth = 0;
   const parts: string[] = [];
   let start = 0;
-  for (let index = 0; index < cleaned.length; index += 1) {
-    const character = cleaned[index];
+  for (let index = 0; index < body.length; index += 1) {
+    const character = body[index];
     if (character === "{" || character === "(" || character === "[") depth += 1;
     if (character === "}" || character === ")" || character === "]") depth -= 1;
     if (character === "," && depth === 0) {
-      parts.push(cleaned.slice(start, index));
+      parts.push(body.slice(start, index));
       start = index + 1;
     }
   }
-  parts.push(cleaned.slice(start));
+  parts.push(body.slice(start));
   return parts.length === size && parts.every((part) => part.trim()) ? parts : null;
 }
 
