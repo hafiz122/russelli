@@ -85,6 +85,16 @@ describe("answer equivalence", () => {
     expect(validateAnswer(matrix, "\\begin{bmatrix}1&\\frac{1}{2}&0\\\\0&-3&0\\end{bmatrix}").correct).toBe(false);
   });
 
+  it("explains a matrix dimension mismatch without rejecting valid matrix input", () => {
+    const matrix = question("\\begin{bmatrix}1&2\\\\3&4\\end{bmatrix}", "matrix");
+    const result = validateAnswer(matrix, "\\begin{bmatrix}1&2&0\\\\3&4&0\\end{bmatrix}");
+
+    expect(result.parseable).toBe(true);
+    expect(result.correct).toBe(false);
+    expect(result.retryEligible).toBe(true);
+    expect(result.feedback).toBe("Your answer is a 2 by 3 matrix. Enter a 2 by 2 matrix.");
+  });
+
   it("accepts nonzero scalar multiples of an eigenvector", () => {
     const vector = question("(2,-3)", "vector_direction");
     expect(validateAnswer(vector, "(-4,6)").correct).toBe(true);

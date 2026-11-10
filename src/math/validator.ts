@@ -292,6 +292,15 @@ export function validateAnswer(question: Question, latex: string): ValidationRes
   } else if (question.answer.kind === "matrix") {
     const actual = parseMatrix(latex)!;
     const expected = parseMatrix(question.answer.latex)!;
+    if (actual.length !== expected.length || actual[0].length !== expected[0].length) {
+      return {
+        parseable: true,
+        correct: false,
+        normalizedAnswer: latex,
+        feedback: `Your answer is a ${actual.length} by ${actual[0].length} matrix. Enter a ${expected.length} by ${expected[0].length} matrix.`,
+        retryEligible: true
+      };
+    }
     correct = equalMatrices(actual, expected);
     normalizedAnswer = latex;
   } else if (question.answer.kind === "interval") {
