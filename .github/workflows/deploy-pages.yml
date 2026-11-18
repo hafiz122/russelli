@@ -36,6 +36,7 @@ jobs:
         run: npm run build
         env:
           VITE_BASE_PATH: /russelli/
+          VITE_GA4_MEASUREMENT_ID: G-2G03BZ4E9V
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload site

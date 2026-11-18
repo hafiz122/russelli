@@ -1,0 +1,120 @@
+.analytics-consent,
+.analytics-save-notice {
+  width: min(100% - 2rem, 82rem);
+  margin-inline: auto;
+  color: var(--ink);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.analytics-consent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 2rem;
+  padding-block: 1rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.analytics-consent[hidden] {
+  display: none;
+}
+
+.analytics-consent-copy {
+  flex: 1 1 30rem;
+}
+
+.analytics-consent-copy p {
+  margin-bottom: 0;
+}
+
+.analytics-consent-copy p + p {
+  margin-top: 0.25rem;
+}
+
+.analytics-consent .analytics-current-choice {
+  color: var(--muted-ink);
+}
+
+.analytics-consent-actions {
+  flex: 0 1 23rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.analytics-choice-button {
+  min-height: 44px;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--ink);
+  border-radius: 0.2rem;
+  background: transparent;
+  color: var(--ink);
+}
+
+.analytics-choice-button:hover {
+  background: var(--lilac);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.analytics-choice-button:active {
+  background: var(--ink);
+  color: var(--paper-bright);
+}
+
+.analytics-settings-link,
+.analytics-keep-choice,
+.analytics-privacy-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.5rem;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.2rem;
+}
+
+.analytics-privacy-link {
+  padding-inline: 0.15rem;
+}
+
+.analytics-keep-choice {
+  grid-column: 1 / -1;
+  justify-content: center;
+}
+
+.analytics-settings-link:hover,
+.analytics-keep-choice:hover,
+.analytics-privacy-link:hover {
+  color: var(--lilac-deep);
+  text-decoration-thickness: 2px;
+}
+
+.analytics-settings-link:active,
+.analytics-keep-choice:active,
+.analytics-privacy-link:active {
+  background: var(--lilac);
+}
+
+.analytics-save-notice {
+  margin-block: 0.75rem;
+}
+
+@media (max-width: 46rem) {
+  .analytics-consent,
+  .analytics-save-notice {
+    width: min(100% - 1.25rem, 82rem);
+  }
+
+  .analytics-consent-copy {
+    flex-basis: 100%;
+  }
+
+  .analytics-consent-actions {
+    flex-basis: 100%;
+  }
+}

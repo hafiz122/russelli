@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MathAnswerInput, StaticMath } from "./components/MathField";
+import { AnalyticsConsent, useAnalyticsConsent } from "./components/AnalyticsConsent";
 import { algebraSkillIds, getSkill, linearAlgebraSkillIds, skills } from "./data/skills";
 import { changelog } from "./data/changelog";
 import { isParseableAnswer, validateAnswer } from "./math/validator";
@@ -56,6 +57,7 @@ function currentPath(): "home" | "practice" | "linear_algebra" | "progress" | "c
 }
 
 function SiteShell({ children, route }: { children: React.ReactNode; route: ReturnType<typeof currentPath> }) {
+  const analytics = useAnalyticsConsent();
   return (
     <>
       <a className="skip-link" href="#main-content">Skip to content</a>
@@ -68,7 +70,8 @@ function SiteShell({ children, route }: { children: React.ReactNode; route: Retu
           <a className={route === "changelog" ? "active" : ""} aria-current={route === "changelog" ? "page" : undefined} href={siteHref("/changelog/")}>Changelog</a>
         </nav>
       </header>
-      <main id="main-content">{children}</main>
+      <AnalyticsConsent consent={analytics} privacyHref={siteHref("/privacy/")} />
+      <main id="main-content" tabIndex={-1}>{children}</main>
       <footer className="site-footer">
         <span>Work it out by hand.</span>
         <div className="footer-information">
@@ -77,6 +80,7 @@ function SiteShell({ children, route }: { children: React.ReactNode; route: Retu
             <a href={siteHref("/privacy/")}>Privacy</a>
             <a href={siteHref("/terms/")}>Terms</a>
             <a href="https://docs.google.com/forms/d/e/1FAIpQLSf00loxr8Eqzs1QMSlz__fzKKcRTgvHI3dYZhoOkrHqukPF6Q/viewform?usp=header" target="_blank" rel="noopener noreferrer" aria-label="Send feedback via Google Forms (opens in a new tab)">Send feedback</a>
+            {analytics.available && <button className="analytics-settings-link" type="button" ref={analytics.settingsButtonRef} aria-controls="analytics-consent" aria-expanded={analytics.isOpen} onClick={analytics.openSettings}>Analytics settings</button>}
           </nav>
         </div>
       </footer>
@@ -491,7 +495,7 @@ function PrivacyPage() {
       <header className="legal-heading">
         <h1>Privacy notice</h1>
         <p>How russelli. handles your practice record and site visits.</p>
-        <p className="legal-date">Last updated <time dateTime="2026-11-10">10 November 2026</time></p>
+        <p className="legal-date">Last updated <time dateTime="2026-11-18">18 November 2026</time></p>
       </header>
 
       <section aria-labelledby="privacy-local">
@@ -508,7 +512,14 @@ function PrivacyPage() {
       <section aria-labelledby="privacy-hosting">
         <h2 id="privacy-hosting">Hosting and site visits</h2>
         <p>GitHub Pages hosts the site. GitHub says it logs visitors’ IP addresses for security, whether or not they are signed in. See <a href="https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages">GitHub’s Pages documentation</a> and <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub’s privacy statement</a> for its handling of that information.</p>
-        <p>We do not currently use advertising or analytics tools on this site.</p>
+      </section>
+
+      <section aria-labelledby="privacy-analytics">
+        <h2 id="privacy-analytics">Optional analytics</h2>
+        <p>If you allow analytics, russelli. uses Google Analytics to count visits and pages viewed. Google Analytics uses cookies to recognize returning browsers and receives page addresses and basic browser and device information. I use these reports to understand site usage. Analytics is not used for advertising.</p>
+        <p>Your submitted answers, points, topic readiness, and stored practice record are not sent to Google Analytics.</p>
+        <p>You can decline analytics and keep using every practice feature. Change your choice through Analytics settings in the footer. Your choice is saved in this browser separately from practice progress. The Google Analytics tag loads only after an allowed choice is saved.</p>
+        <p>See <a href="https://policies.google.com/technologies/partner-sites">how Google uses information from sites that use its services</a>.</p>
       </section>
 
       <section aria-labelledby="privacy-contact">

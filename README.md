@@ -98,6 +98,14 @@ Open tabs share progress updates. Writes use the browser's Web Locks API to read
 
 Each displayed problem has its own presentation ID for rewards, separate from its reproducible mathematical question ID. Identical seeded problems in different tabs therefore earn points independently. Calibration submissions retain the slot shown with their question: completing an older copy still updates mastery and rewards, but cannot consume a later calibration slot.
 
+### Visitor analytics
+
+The live site offers optional Google Analytics 4 traffic measurement. Visitors can allow or decline analytics and change their choice through **Analytics settings** in the footer. The Google tag loads only after permission. Practice remains available either way, and submitted answers, points, readiness scores, and the saved practice record are not sent to Analytics.
+
+Analytics records page views and standard session and engagement events. Advertising features are disabled, and page URLs and referrers have their query strings and fragments removed. Counts cover measured visitors; consent choices and browser blocking can reduce them. Open Google Analytics and select **Reports > Realtime** to view recent activity.
+
+The Pages workflow supplies the public measurement ID through `VITE_GA4_MEASUREMENT_ID`. This ID is configuration, not a secret. Analytics is disabled without a valid ID and outside the production site, including local development and previews.
+
 ## Local development
 
 Use Node.js **22.13.0 or newer** and npm. Run these commands from the repository root:
