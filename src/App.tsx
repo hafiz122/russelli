@@ -76,6 +76,7 @@ function SiteShell({ children, route }: { children: React.ReactNode; route: Retu
           <nav aria-label="Site information">
             <a href={siteHref("/privacy/")}>Privacy</a>
             <a href={siteHref("/terms/")}>Terms</a>
+            <a href="https://docs.google.com/forms/d/e/1FAIpQLSf00loxr8Eqzs1QMSlz__fzKKcRTgvHI3dYZhoOkrHqukPF6Q/viewform?usp=header" target="_blank" rel="noopener noreferrer" aria-label="Send feedback via Google Forms (opens in a new tab)">Send feedback</a>
           </nav>
         </div>
       </footer>
