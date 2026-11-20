@@ -1,3 +1,5 @@
+import mergedPullRequests from "./merged-pull-requests.json";
+
 export interface ChangelogEntry {
   id: string;
   date: string;
@@ -6,7 +8,7 @@ export interface ChangelogEntry {
   changes: string[];
 }
 
-export const changelog: ChangelogEntry[] = [
+const releaseNotes: ChangelogEntry[] = [
   {
     id: "linear-algebra",
     date: "2026-11-10",
@@ -39,3 +41,6 @@ export const changelog: ChangelogEntry[] = [
     ]
   }
 ];
+
+export const changelog: ChangelogEntry[] = [...mergedPullRequests, ...releaseNotes]
+  .sort((a, b) => b.date.localeCompare(a.date));
