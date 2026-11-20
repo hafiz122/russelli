@@ -1,4 +1,4 @@
-import type { SkillDefinition, SkillId } from "../types";
+import type { SkillDefinition, SkillId, TrackId } from "../types";
 
 export const skills: SkillDefinition[] = [
   {
@@ -104,12 +104,96 @@ export const skills: SkillDefinition[] = [
     description: "Find eigenvalues and an eigenvector for a given eigenvalue.",
     prerequisites: ["determinants_inverses"],
     track: "linear_algebra"
+  },
+  {
+    id: "counting",
+    title: "Permutations & combinations",
+    shortTitle: "Counting",
+    description: "Count the ways to fill distinct roles or choose a group.",
+    prerequisites: [],
+    track: "statistics_probability"
+  },
+  {
+    id: "conditional_probability",
+    title: "Conditional probability",
+    shortTitle: "Conditioning",
+    description: "Use what you know about one event to find the probability of another.",
+    prerequisites: ["counting"],
+    track: "statistics_probability"
+  },
+  {
+    id: "discrete_variables",
+    title: "Discrete random variables",
+    shortTitle: "Discrete variables",
+    description: "Find a mean or variance from probability masses and calculate binomial probabilities.",
+    prerequisites: ["conditional_probability"],
+    track: "statistics_probability"
+  },
+  {
+    id: "continuous_variables",
+    title: "Continuous random variables",
+    shortTitle: "Densities",
+    description: "Normalize a density and integrate it to find the probability of an interval.",
+    prerequisites: ["discrete_variables"],
+    track: "statistics_probability"
+  },
+  {
+    id: "transformations",
+    title: "Transformations of random variables",
+    shortTitle: "Transformations",
+    description: "Find a cumulative distribution or density after a change of variable.",
+    prerequisites: ["continuous_variables"],
+    track: "statistics_probability"
+  },
+  {
+    id: "sampling_distributions",
+    title: "Sample means & the central limit theorem",
+    shortTitle: "Sample means",
+    description: "Find the distribution of a sample mean and use the central limit theorem to approximate a sampling distribution.",
+    prerequisites: ["discrete_variables", "continuous_variables"],
+    track: "statistics_probability"
+  },
+  {
+    id: "one_sample_laws",
+    title: "One-sample sampling laws",
+    shortTitle: "One sample",
+    description: "Identify the sampling laws for statistics based on a normal sample’s mean and variance.",
+    prerequisites: ["sampling_distributions"],
+    track: "statistics_probability"
+  },
+  {
+    id: "two_sample_laws",
+    title: "Two-sample sampling laws",
+    shortTitle: "Two samples",
+    description: "Work with differences of sample means and ratios of sample variances from independent normal samples.",
+    prerequisites: ["one_sample_laws"],
+    track: "statistics_probability"
   }
 ];
 
 export const skillIds = skills.map((skill) => skill.id);
 export const algebraSkillIds = skills.filter((skill) => skill.track === "algebra").map((skill) => skill.id);
 export const linearAlgebraSkillIds = skills.filter((skill) => skill.track === "linear_algebra").map((skill) => skill.id);
+export const statisticsSkillIds = skills.filter((skill) => skill.track === "statistics_probability").map((skill) => skill.id);
+
+export const trackIds = ["algebra", "linear_algebra", "statistics_probability"] as const;
+export const tracks = {
+  algebra: {
+    title: "Algebra", path: "/practice/", skillIds: algebraSkillIds,
+    preference: "preferredSkill", guidedLabel: "Adaptive queue"
+  },
+  linear_algebra: {
+    title: "Linear algebra", path: "/linear-algebra/", skillIds: linearAlgebraSkillIds,
+    preference: "preferredLinearSkill", guidedLabel: "Guided queue"
+  },
+  statistics_probability: {
+    title: "Statistics & probability", path: "/statistics-probability/", skillIds: statisticsSkillIds,
+    preference: "preferredStatisticsSkill", guidedLabel: "Guided queue"
+  }
+} as const satisfies Record<TrackId, {
+  title: string; path: string; skillIds: SkillId[];
+  preference: "preferredSkill" | "preferredLinearSkill" | "preferredStatisticsSkill"; guidedLabel: string;
+}>;
 
 export function getSkill(id: SkillId): SkillDefinition {
   const skill = skills.find((item) => item.id === id);

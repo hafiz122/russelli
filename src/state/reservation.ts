@@ -45,7 +45,7 @@ export function reservePresentation(progress: LocalProgressV1, options: Reservat
     randomUint32: options.randomUint32
   });
 
-  const calibrationIndex = track === "linear_algebra" || progress.calibrationCompleted ? null : progress.calibrationIndex;
+  const calibrationIndex = track === "algebra" && !progress.calibrationCompleted ? progress.calibrationIndex : null;
   return {
     progress: { ...progress, recentPresentations: [...currentHistory, { ...presentation, calibrationIndex }].slice(-40) },
     question,

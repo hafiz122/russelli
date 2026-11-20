@@ -1,5 +1,7 @@
 import { ComputeEngine, isFunction, isNumber, type BoxedExpression } from "@cortex-js/compute-engine";
+import { statisticsSkillIds } from "../data/skills";
 import type { Question, ValidationResult } from "../types";
+import { distributionLatex, readDistribution } from "./distributions";
 
 const ce = new ComputeEngine();
 
@@ -12,9 +14,9 @@ function compact(value: string): string {
     .replace(/[{}]/g, "");
 }
 
-function parse(value: string, canonical = true): BoxedExpression | null {
+function parse(value: string, canonical = true, parseNumbers: "auto" | "rational" = "auto"): BoxedExpression | null {
   try {
-    const expression = ce.parse(value, { form: canonical ? "canonical" : "structural" });
+    const expression = ce.parse(value, { form: canonical ? "canonical" : "structural", parseNumbers });
     if (!expression?.isValid || expression.has("Error")) return null;
     return expression;
   } catch {
@@ -86,6 +88,40 @@ function equalExpressions(actual: string, expected: string): boolean {
     actualExpression.is(expectedExpression) ||
     actualExpression.isIdenticallyEqual(expectedExpression) === true
   );
+}
+
+function equalExactExpressions(actual: string, expected: string): boolean {
+  const left = parseExactValue(actual);
+  const right = parseExactValue(expected);
+  if (!left || !right) return false;
+  if (left.isSame(right)) return true;
+  if (right.freeVariables.length === 0) return false;
+  return left.isIdenticallyEqual(right) === true;
+}
+
+function equalTransformation(actual: string, expected: string, equivalents: string[] = []): boolean {
+  const submitted = parse(actual, true, "rational");
+  const primary = parse(expected, true, "rational");
+  if (!submitted || !primary) return false;
+  if (submitted.isSame(primary)) return true;
+  const left = submitted.simplify();
+  const matches = (expression: BoxedExpression) => {
+    const right = expression.simplify();
+    return left.isSame(right) || ce.box(["Subtract", left, right]).simplify().isSame(ce.number(0));
+  };
+  return matches(primary) || equivalents.some((latex) => {
+    const alternative = parse(latex, true, "rational");
+    return alternative !== null && matches(alternative);
+  });
+}
+
+function parseExactValue(latex: string): BoxedExpression | undefined {
+  // The engine constructs decimal denominators with a machine power of ten.
+  // From 10^23 onward, that can change the fraction before it is compared.
+  const value = latex.replace(/(\d*)\.(\d{23,})/g, (_, whole: string, decimals: string) =>
+    `\\frac{${whole}${decimals}}{10^{${decimals.length}}}`
+  );
+  return parse(value, true, "rational")?.evaluate();
 }
 
 function equalEquations(actual: string, expected: string): boolean {
@@ -258,6 +294,14 @@ function equalIntervals(actual: ParsedInterval, expected: ParsedInterval): boole
 
 export function isParseableAnswer(question: Question, latex: string): boolean {
   if (!latex.trim()) return false;
+  if (question.answer.kind === "distribution") {
+    const law = readDistribution(latex);
+    return Boolean(law && law.parameters.every((parameter) => {
+      if (!parameter.trim() || parameter.includes("\\placeholder")) return false;
+      const expression = parse(parameter);
+      return expression && expression.isNumber !== false && expression.isFinite !== false;
+    }));
+  }
   if (["ordered_pair", "ordered_triple", "vector_direction"].includes(question.answer.kind)) {
     const tuple = splitTuple(latex, question.answer.kind === "ordered_triple" ? 3 : 2);
     return Boolean(tuple && tuple.every((component) => parse(component)));
@@ -281,7 +325,13 @@ export function validateAnswer(question: Question, latex: string): ValidationRes
   let correct = false;
   let normalizedAnswer = latex;
 
-  if (question.answer.kind === "ordered_pair" || question.answer.kind === "ordered_triple" || question.answer.kind === "vector_direction") {
+  if (question.answer.kind === "distribution") {
+    const actual = readDistribution(latex)!;
+    const expected = question.answer.distribution;
+    correct = actual.family === expected?.family &&
+      actual.parameters.every((parameter, index) => equalExactExpressions(parameter, expected.parameters[index]));
+    normalizedAnswer = distributionLatex(actual.family, actual.parameters.map((parameter) => parse(parameter)!.simplify().latex));
+  } else if (question.answer.kind === "ordered_pair" || question.answer.kind === "ordered_triple" || question.answer.kind === "vector_direction") {
     const size = question.answer.kind === "ordered_triple" ? 3 : 2;
     const actual = splitTuple(latex, size)!;
     const expected = splitTuple(question.answer.latex, size)!;
@@ -323,8 +373,13 @@ export function validateAnswer(question: Question, latex: string): ValidationRes
   } else if (question.answer.kind === "equation") {
     correct = equalEquations(latex, question.answer.latex);
     normalizedAnswer = parse(latex)!.latex;
+  } else if (question.answer.kind === "expression" && question.skillId === "transformations") {
+    correct = equalTransformation(latex, question.answer.latex, question.answer.equivalentLatex);
+    normalizedAnswer = parse(latex, true, "rational")!.simplify().latex;
   } else {
-    correct = equalExpressions(latex, question.answer.latex);
+    correct = question.answer.kind === "number" && statisticsSkillIds.includes(question.skillId)
+      ? equalExactExpressions(latex, question.answer.latex)
+      : equalExpressions(latex, question.answer.latex);
     normalizedAnswer = parse(latex)!.simplify().latex;
   }
 

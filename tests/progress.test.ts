@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { statisticsSkillIds } from "../src/data/skills";
 import { chooseSkill, difficultyFor, recordAttempt, setPreferredSkill } from "../src/state/adaptive";
 import { clearProgress, createDefaultProgress, loadProgress, saveProgress } from "../src/state/storage";
 import type { Attempt, RecentPresentation } from "../src/types";
@@ -97,6 +98,35 @@ describe("local progress", () => {
     expect(restored.mastery.expressions).toBe(0.9);
     expect(restored.mastery.vectors).toBe(0.35);
     expect(restored.preferredLinearSkill).toBeNull();
+  });
+
+  it("guides statistics independently and restores the three track preferences", () => {
+    let progress = createDefaultProgress();
+    for (const topic of statisticsSkillIds) {
+      expect(chooseSkill(progress, "statistics_probability")).toBe(topic);
+      progress.mastery[topic] = 0.6;
+    }
+    expect(statisticsSkillIds).toContain(chooseSkill(progress, "statistics_probability"));
+    progress = setPreferredSkill(progress, "functions");
+    progress = setPreferredSkill(progress, "matrices", "linear_algebra");
+    progress = setPreferredSkill(progress, "transformations", "statistics_probability");
+    saveProgress(progress);
+    const loaded = loadProgress().progress;
+    expect(chooseSkill(loaded, "statistics_probability")).toBe("transformations");
+    expect(chooseSkill(loaded, "linear_algebra")).toBe("matrices");
+    expect(chooseSkill(loaded)).toBe("expressions");
+    expect(chooseSkill({ ...loaded, calibrationCompleted: true })).toBe("functions");
+  });
+
+  it("backfills statistics topics in old records and filters a focus from another track", () => {
+    const previous = recordAttempt(setPreferredSkill(createDefaultProgress(), "eigen", "linear_algebra"), attempt());
+    const { preferredStatisticsSkill, ...old } = previous;
+    const mastery = { ...old.mastery };
+    for (const topic of statisticsSkillIds) delete (mastery as Partial<typeof mastery>)[topic];
+    for (const extra of [{}, { preferredStatisticsSkill: "eigen" }]) {
+      window.localStorage.setItem("russelli.progress.v1", JSON.stringify({ ...old, mastery, ...extra }));
+      expect(loadProgress()).toEqual({ progress: previous, recovered: false });
+    }
   });
 
   it("selects difficulty from mastery", () => {

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { MathfieldElement } from "mathlive";
+import { convertLatexToSpeakableText, MathfieldElement } from "mathlive";
 
 MathfieldElement.fontsDirectory = null;
 MathfieldElement.soundsDirectory = null;
@@ -9,16 +9,19 @@ MathfieldElement.plonkSound = null;
 interface MathAnswerInputProps {
   value: string;
   onChange: (latex: string) => void;
-  onSubmit: () => void;
+  onSubmit: (latex: string) => void;
   disabled?: boolean;
   readOnly?: boolean;
   label: string;
+  id?: string;
+  placeholder?: string;
   matrixShape?: { rows: number; cols: number };
 }
 
-export function MathAnswerInput({ value, onChange, onSubmit, disabled = false, readOnly = false, label, matrixShape }: MathAnswerInputProps) {
+export function MathAnswerInput({ value, onChange, onSubmit, disabled = false, readOnly = false, label, id, placeholder = "\\text{Enter your final answer}", matrixShape }: MathAnswerInputProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const fieldRef = useRef<MathfieldElement | null>(null);
+  const lastEmitted = useRef(value);
   const onChangeRef = useRef(onChange);
   const onSubmitRef = useRef(onSubmit);
 
@@ -34,17 +37,29 @@ export function MathAnswerInput({ value, onChange, onSubmit, disabled = false, r
     });
     field.smartFence = true;
     field.smartMode = true;
+    if (id) field.id = id;
     field.setAttribute("aria-label", label);
-    field.setAttribute("placeholder", "\\text{Enter your final answer}");
+    if (placeholder) field.setAttribute("placeholder", placeholder);
     field.className = "math-answer-field";
     field.value = value;
+    lastEmitted.current = value;
 
-    const handleInput = () => onChangeRef.current(field.getValue("latex"));
+    const handleInput = () => {
+      queueMicrotask(() => {
+        if (fieldRef.current !== field) return;
+        const current = field.getValue("latex");
+        if (current === lastEmitted.current) return;
+        lastEmitted.current = current;
+        onChangeRef.current(current);
+      });
+    };
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        onSubmitRef.current();
-      }
+      if (event.key !== "Enter" || event.isComposing) return;
+      const target = event.composedPath()[0];
+      if (target instanceof HTMLElement && target.closest("button, [role=button]")) return;
+      event.preventDefault();
+      event.stopPropagation();
+      onSubmitRef.current(field.getValue("latex"));
     };
     field.addEventListener("input", handleInput);
     field.addEventListener("change", handleInput);
@@ -59,11 +74,14 @@ export function MathAnswerInput({ value, onChange, onSubmit, disabled = false, r
       field.remove();
       fieldRef.current = null;
     };
-  }, [label]);
+  }, [label, id, placeholder]);
 
   useEffect(() => {
     const field = fieldRef.current;
-    if (field && field.value !== value) field.value = value;
+    if (field && lastEmitted.current !== value) {
+      lastEmitted.current = value;
+      if (field.value !== value) field.value = value;
+    }
   }, [value]);
 
   useEffect(() => {
@@ -82,7 +100,8 @@ export function MathAnswerInput({ value, onChange, onSubmit, disabled = false, r
     ).join("\\\\")}\\end{bmatrix}`;
     field.focus();
     field.insert(template);
-    onChange(field.getValue("latex"));
+    lastEmitted.current = field.getValue("latex");
+    onChange(lastEmitted.current);
   }
 
   return <div className="math-answer-control">
@@ -96,11 +115,33 @@ export function MathAnswerInput({ value, onChange, onSubmit, disabled = false, r
 interface StaticMathProps {
   latex: string;
   label?: string;
+  description?: string;
   className?: string;
   fitToContainer?: boolean;
 }
 
-export function StaticMath({ latex, label, className = "", fitToContainer = false }: StaticMathProps) {
+function describeMatrices(latex: string): string {
+  return latex.replace(/\\begin\{bmatrix\}([\s\S]*?)\\end\{bmatrix\}/g, (_match, body: string) => {
+    const rows = body.split(/\\\\/).map((row) => row.split("&"));
+    const entries = rows.flatMap((row, rowIndex) => row.map((entry, columnIndex) =>
+      `row ${rowIndex + 1} column ${columnIndex + 1} ${entry}`));
+    return `matrix ${rows.length} by ${rows[0]?.length ?? 0}, ${entries.join(", ")}`;
+  }).replace(/c_\{(\d)(\d)\}/g, (_match, row: string, column: string) => `row ${row} column ${column}`)
+    .replace(/\\quad/g, ", ").replace(/\\/g, " ").replace(/[{}]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function spokenDescription(latex: string): string {
+  try {
+    if (latex.includes("\\begin{bmatrix}") || /c_\{\d\d\}/.test(latex)) return describeMatrices(latex);
+    return latex.replace(/^\\begin\{gathered\}|\\end\{gathered\}$/g, "").split("\\\\")
+      .map((line) => convertLatexToSpeakableText(line).trim()).join(" ").trim() || latex;
+  } catch {
+    // A saved answer can contain notation that the speech converter cannot describe.
+    return latex;
+  }
+}
+
+export function StaticMath({ latex, label, description, className = "", fitToContainer = false }: StaticMathProps) {
   const hostRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -111,11 +152,11 @@ export function StaticMath({ latex, label, className = "", fitToContainer = fals
     field.value = latex;
     field.className = `static-math ${className}`.trim();
     host.append(field);
-    const spokenMath = field.getValue("spoken").trim();
-    field.setAttribute("aria-label", label ? `${label} ${spokenMath || latex}` : spokenMath || latex);
+    const spokenMath = description || spokenDescription(latex);
+    field.setAttribute("aria-label", label ? `${label} ${spokenMath}` : spokenMath);
     if (!fitToContainer) return () => field.remove();
 
-    const clauses = latex.split(/,\s*\\quad\s*/);
+    const clauses = latex.includes("\\begin{gathered}") ? [latex] : latex.split(/,\s*\\quad\s*/);
     const multiline = `\\begin{gathered}${clauses.join(",\\\\")}\\end{gathered}`;
     let singleLineWidth = 0;
     let displayedLatex = latex;
@@ -177,7 +218,7 @@ export function StaticMath({ latex, label, className = "", fitToContainer = fals
       document.fonts.removeEventListener("loadingdone", fontsChanged);
       field.remove();
     };
-  }, [className, fitToContainer, label, latex]);
+  }, [className, fitToContainer, label, description, latex]);
 
   return <span ref={hostRef} className={`static-math-host${fitToContainer ? " responsive-math" : ""}`} />;
 }

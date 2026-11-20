@@ -1,0 +1,39 @@
+.distribution-answer {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.distribution-answer legend {
+  padding: 0;
+}
+
+.distribution-control {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  gap: 0.35rem;
+}
+
+.distribution-control label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.distribution-control select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--muted-ink);
+  border-radius: 0.2rem;
+  background: var(--paper-bright);
+  color: var(--ink);
+  padding: 0.5rem;
+}
+
+.distribution-parameters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 0.75rem;
+  margin-top: 0.8rem;
+}

@@ -1,4 +1,4 @@
-import { algebraSkillIds, linearAlgebraSkillIds, skills } from "../data/skills";
+import { algebraSkillIds, skills, tracks } from "../data/skills";
 import type { Attempt, Difficulty, LocalProgressV1, SkillId, TrackId } from "../types";
 import { applyRewardEvent } from "./rewards";
 
@@ -20,15 +20,16 @@ function lastSeenIndex(progress: LocalProgressV1, skillId: SkillId): number {
 }
 
 export function chooseSkill(progress: LocalProgressV1, track: TrackId = "algebra"): SkillId {
-  if (track === "linear_algebra") {
-    if (progress.preferredLinearSkill) return progress.preferredLinearSkill;
-    const next = linearAlgebraSkillIds.find((id) => progress.mastery[id] < 0.45);
-    if (next) return next;
-  } else {
-    if (!progress.calibrationCompleted) return algebraSkillIds[progress.calibrationIndex] ?? algebraSkillIds[0];
-    if (progress.preferredSkill) return progress.preferredSkill;
+  if (track === "algebra" && !progress.calibrationCompleted) {
+    return algebraSkillIds[progress.calibrationIndex] ?? algebraSkillIds[0];
   }
-  const candidates = track === "algebra" ? algebraSkillIds : linearAlgebraSkillIds;
+  const { skillIds: candidates, preference } = tracks[track];
+  const preferred = progress[preference];
+  if (preferred) return preferred;
+  if (track !== "algebra") {
+    const next = candidates.find((id) => progress.mastery[id] < 0.45);
+    if (next) return next;
+  }
 
   return [...candidates].sort((left, right) => {
     const leftPriority =
@@ -77,6 +78,6 @@ export function recordAttempt(progress: LocalProgressV1, attempt: Attempt): Loca
 }
 
 export function setPreferredSkill(progress: LocalProgressV1, skillId: SkillId | null, track: TrackId = "algebra"): LocalProgressV1 {
-  return track === "algebra" ? { ...progress, preferredSkill: skillId } : { ...progress, preferredLinearSkill: skillId };
+  return { ...progress, [tracks[track].preference]: skillId };
 }
 

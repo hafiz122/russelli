@@ -1,4 +1,4 @@
-import { algebraSkillIds, linearAlgebraSkillIds, skillIds } from "../data/skills";
+import { algebraSkillIds, skillIds, trackIds, tracks } from "../data/skills";
 import type { Attempt, LocalProgressV1, QuestionReward, RecentPresentation, SkillId } from "../types";
 
 export const STORAGE_KEY = "russelli.progress.v1";
@@ -28,6 +28,7 @@ export function createDefaultProgress(): LocalProgressV1 {
     recentPresentations: [],
     preferredSkill: null,
     preferredLinearSkill: null,
+    preferredStatisticsSkill: null,
     totalPoints: 0,
     currentStreak: 0,
     bestStreak: 0,
@@ -114,8 +115,11 @@ export function loadProgress(): { progress: LocalProgressV1; recovered: boolean 
     base.recentPresentations = Array.isArray(value.recentPresentations)
       ? value.recentPresentations.filter(isRecentPresentation).slice(-40)
       : [];
-    base.preferredSkill = isSkillId(value.preferredSkill) && algebraSkillIds.includes(value.preferredSkill) ? value.preferredSkill : null;
-    base.preferredLinearSkill = isSkillId(value.preferredLinearSkill) && linearAlgebraSkillIds.includes(value.preferredLinearSkill) ? value.preferredLinearSkill : null;
+    for (const trackId of trackIds) {
+      const { preference, skillIds: topicIds } = tracks[trackId];
+      const preferred = value[preference];
+      base[preference] = isSkillId(preferred) && topicIds.includes(preferred) ? preferred : null;
+    }
     base.totalPoints = rewardCount(value.totalPoints);
     base.currentStreak = rewardCount(value.currentStreak);
     base.bestStreak = Math.max(base.currentStreak, rewardCount(value.bestStreak));

@@ -1,6 +1,6 @@
 # russelli.
 
-Paper-first algebra and linear algebra practice for college beginners. The site presents one problem at a time: work through it in a notebook, enter the final mathematical answer, and check it in the browser.
+Paper-first practice in algebra, linear algebra, statistics, and probability. The site presents one problem at a time. Work through it in a notebook, enter the final mathematical answer, and check it in the browser.
 
 Live site: [hafiz122.github.io/russelli](https://hafiz122.github.io/russelli/)
 
@@ -41,10 +41,10 @@ This record shows one accepted answer submitted during the screenshot session.
 2. Solve the displayed problem on paper. Use the math field and its virtual keyboard to enter your final answer.
 3. Select **Check answer** or press Enter. Incomplete input keeps the check button disabled; an incorrect answer can be edited and checked again.
 4. Reveal hints one at a time or open the worked solution when you need help. You can also skip a question.
-5. Continue with the adaptive algebra queue, or select a topic under **Practice focus** for focused practice. Open **Linear algebra** for its separate guided queue and topic choices.
+5. Continue with the adaptive algebra queue, or use **Practice focus** for focused practice. **Linear algebra** and **Statistics & probability** each have their own guided sequence and topic choices.
 6. Open **Progress** to review topic readiness and recent answer checks. **Reset local progress** opens a confirmation dialog before clearing the record.
 
-The algebra adaptive queue considers mastery, how recently a topic appeared, and prerequisite readiness. The linear algebra queue starts with vectors and advances through its five topics as readiness reaches 0.45; after that, it adapts within the linear algebra track. Difficulty moves between easy, medium, and hard as mastery changes. Within a topic, consecutive questions in one tab use different problem forms. The app also compares new questions with recently displayed problems to reduce repeats. First-attempt success increases mastery more than success after retries or hints; incorrect checks and skips reduce it.
+The algebra adaptive queue considers mastery, how recently a topic appeared, and prerequisite readiness. The guided queues start with vectors in linear algebra and counting in statistics. They advance as each topic’s readiness reaches 0.45, then adapt within the chosen subject. Difficulty moves between easy, medium, and hard as mastery changes. Within a topic, consecutive questions in one tab use different problem forms. The app also compares new questions with recently displayed problems to reduce repeats. First-attempt success increases mastery more than success after retries or hints. Incorrect checks and skips reduce it.
 
 ### Points and streaks
 
@@ -77,18 +77,32 @@ The separate linear algebra track covers:
 | Determinants & inverses | Find two-by-two or three-by-three determinants and two-by-two inverses |
 | Eigenvalues & eigenvectors | Find two distinct real eigenvalues or a nonzero eigenvector for a given eigenvalue |
 
+The **Statistics & probability** track starts with counting and introduces single-variable calculus at continuous random variables.
+
+| Topic | Current practice |
+| --- | --- |
+| Permutations & combinations | Count ordered placements and unordered selections, including restricted groups |
+| Conditional probability | Condition on observed draws and use Bayes’ rule to reverse conditioning |
+| Discrete random variables | Compute moments of a finite distribution and probabilities for binomial events |
+| Continuous random variables | Normalize a density and integrate it over an interval |
+| Transformations | Derive a cumulative distribution function or density on a given interval |
+| Sample means & the central limit theorem | Find exact normal laws and approximate distributions of sums and means |
+| One-sample sampling laws | Identify Student’s t and chi-square laws from normal samples |
+| Two-sample sampling laws | Find laws for differences of normal sample means and ratios of normalized sample variances |
+
 Follow each problem's answer instructions:
 
 - Enter numbers, fractions, expressions, or equations as requested. The validator compares mathematical equivalence rather than literal text.
 - Enter system solutions as `(x, y)` and quadratic roots as `(smaller, larger)`.
 - Enter three-variable system solutions as `(x, y, z)`. Matrix answers use the visible matrix template; the checker compares dimensions and equivalent entries.
 - Enter eigenvalue pairs in ascending order. Any nonzero scalar multiple of a valid eigenvector is accepted.
+- For a distribution, choose its family and enter the labeled parameters. The normal family takes the mean and variance. For F, enter the numerator and denominator degrees of freedom in order. Select **Check answer** to submit the whole law.
 - Use interval notation for inequalities, such as `[2, ∞)`. Infinity always takes a parenthesis. The validator also supports equivalent one-sided inequality notation.
 - Keep a factorization in factored form when the question requests it, and cancel common factors when simplifying a rational expression. Equivalence alone does not satisfy these form requirements.
 
 ### Local progress
 
-The application runs entirely in the browser, with no account or backend service. It saves algebra calibration state, mastery scores, separate algebra and linear algebra topic preferences, recent attempts, recent seeds, recently displayed questions, cumulative points, current and best streaks, and the current question's reward status in `localStorage` under `russelli.progress.v1`. A tab also remembers its last problem form for each topic in `sessionStorage`. Older records retain their learning history and gain default readiness for the new linear algebra topics. Historical answers do not receive points retroactively. Invalid reward fields fall back to safe defaults without removing valid learning history.
+The application runs entirely in the browser, with no account or backend service. It saves algebra calibration state, mastery scores, a topic preference for each track, recent attempts, recent seeds, recently displayed questions, cumulative points, current and best streaks, and the current question's reward status in `localStorage` under `russelli.progress.v1`. A tab also remembers its last problem form for each topic in `sessionStorage`. Older records retain their learning history and gain default readiness for new topics. Historical answers do not receive points retroactively. Invalid reward fields fall back to safe defaults without removing valid learning history.
 
 On the same browser profile and site origin, the app also reads the legacy `nurkh.progress.v1` key when no current record exists, preserving progress saved before the rename. Subsequent saves use `russelli.progress.v1`; a reset removes the legacy record and saves the cleared current record with a new reset identifier.
 
@@ -140,6 +154,7 @@ npm run preview
 | `/` | Introduction and topic index |
 | `/practice/` | Calibration, adaptive practice, and answer checking |
 | `/linear-algebra/` | Guided linear algebra practice and focused topics |
+| `/statistics-probability/` | Guided statistics and probability practice and focused topics |
 | `/progress/` | Local readiness scores, recent checks, and reset controls |
 | `/privacy/` | How local progress and site visits are handled |
 | `/terms/` | Terms for study use and automated checking |
@@ -160,7 +175,7 @@ npm run test:e2e
 npm run build
 ```
 
-The unit suite covers answer equivalence, answer-form constraints, calibration, mastery updates, scoring milestones, reward eligibility, duplicate awards, local-storage compatibility and recovery, serialized updates, and rejection of writes from before a reset. Generator tests check reproducibility and acceptance of the generated answer for 1,000 seeds per topic and difficulty: 39,000 combinations across thirteen topics and three difficulty levels. Separate linear algebra tests calculate the results independently across the same seed range.
+The unit suite covers answer equivalence, answer-form constraints, calibration, mastery updates, scoring milestones, reward eligibility, duplicate awards, local-storage compatibility and recovery, serialized updates, and rejection of writes from before a reset. Generator tests check reproducibility and acceptance of the generated answer for 1,000 seeds per topic and difficulty, totaling 63,000 combinations across 21 topics. Independent tests check linear algebra and statistics answers over the same seed range.
 
 Playwright runs desktop Chrome and Pixel 7 browser profiles. Its tests cover retries, hints, worked solutions, progress navigation, topic selection, MathLive input, interval handling, and accepted-answer feedback. Reward tests cover milestone bonuses, duplicate Enter submissions, persistence, resets, rule disclosures, and fixed problems across difficulty thresholds. Multi-tab regressions cover concurrent answers, delayed storage notifications, reset propagation, stale submissions after reset, solution handling, and retrying a failed save. Accessibility checks cover the home, practice, and progress pages; layout checks include large reward counts, widths from 320 to 1280px, 200% text sizing, control sizes, keyboard focus, and reduced motion. The test configuration starts its own Vite server at `http://127.0.0.1:4173`; you do not need to start one separately.
 
@@ -179,7 +194,7 @@ VITE_BASE_PATH=/russelli/ npm run preview
 
 Open the preview URL with `/russelli/` appended. `VITE_BASE_PATH` defaults to `/`; set it to the deployment subdirectory, including leading and trailing slashes, when hosting under another path. Build again after changing it.
 
-Vite emits separate HTML entry points for the home, algebra, linear algebra, progress, changelog, privacy, and terms pages. Other static hosts should publish the full `dist/` directory and serve each page's `index.html` at its directory URL.
+Vite emits a separate HTML entry point for the home page, each practice track, progress, changelog, privacy, and terms. Other static hosts should publish the full `dist/` directory and serve each page's `index.html` at its directory URL.
 
 ## Code structure
 

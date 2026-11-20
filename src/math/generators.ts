@@ -2,6 +2,8 @@ import { binomial, fraction, linearExpression, polynomialExpression, signedTerm 
 import { SeededRandom, stableSeed } from "./rng";
 import { validateAnswer } from "./validator";
 import { linearAlgebraFormIds, linearAlgebraGenerators } from "./linearAlgebra";
+import { statisticsFoundationFormIds, statisticsFoundationGenerators } from "./statisticsFoundations";
+import { samplingFormIds, samplingGenerators } from "./samplingDistributions";
 import type { Difficulty, Question, QuestionGenerator, SkillId } from "../types";
 
 const ranges: Record<Difficulty, [number, number]> = {
@@ -22,7 +24,9 @@ export const formIds: Record<SkillId, readonly [string, string]> = {
   factoring_quadratics: ["factor", "roots"],
   rational: ["simplify", "equation"],
   functions: ["composition", "inverse"],
-  ...linearAlgebraFormIds
+  ...linearAlgebraFormIds,
+  ...statisticsFoundationFormIds,
+  ...samplingFormIds
 };
 
 function problemKey(skillId: SkillId, formId: string, ...values: Array<number | string>): string {
@@ -502,7 +506,9 @@ export const generators: Record<SkillId, QuestionGenerator> = {
   factoring_quadratics: factoringQuadratics,
   rational,
   functions,
-  ...linearAlgebraGenerators
+  ...linearAlgebraGenerators,
+  ...statisticsFoundationGenerators,
+  ...samplingGenerators
 };
 
 export function generateQuestion(skillId: SkillId, seed: number, difficulty: Difficulty): Question {

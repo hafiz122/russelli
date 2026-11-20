@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MathAnswerInput, StaticMath } from "./components/MathField";
+import { DistributionAnswerInput } from "./components/DistributionAnswer";
 import { AnalyticsConsent, useAnalyticsConsent } from "./components/AnalyticsConsent";
-import { algebraSkillIds, getSkill, linearAlgebraSkillIds, skills } from "./data/skills";
+import { algebraSkillIds, getSkill, skills, trackIds, tracks } from "./data/skills";
 import { changelog } from "./data/changelog";
 import { isParseableAnswer, validateAnswer } from "./math/validator";
 import { recordAttempt, setPreferredSkill } from "./state/adaptive";
@@ -42,13 +43,13 @@ function siteHref(path: string): string {
   return `${basePath}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-function currentPath(): "home" | "practice" | "linear_algebra" | "progress" | "changelog" | "privacy" | "terms" {
+function currentPath(): TrackId | "home" | "progress" | "changelog" | "privacy" | "terms" {
   const pathname = basePath && window.location.pathname.startsWith(`${basePath}/`)
     ? window.location.pathname.slice(basePath.length)
     : window.location.pathname;
   const path = pathname.replace(/\/$/, "") || "/";
-  if (path === "/practice") return "practice";
-  if (path === "/linear-algebra") return "linear_algebra";
+  const track = trackIds.find((id) => tracks[id].path === `${path}/`);
+  if (track) return track;
   if (path === "/progress") return "progress";
   if (path === "/changelog") return "changelog";
   if (path === "/privacy") return "privacy";
@@ -64,8 +65,9 @@ function SiteShell({ children, route }: { children: React.ReactNode; route: Retu
       <header className="site-header">
         <a className="wordmark" href={siteHref("/")} aria-label="russelli home">russelli.</a>
         <nav aria-label="Primary navigation">
-          <a className={route === "practice" ? "active" : ""} aria-current={route === "practice" ? "page" : undefined} href={siteHref("/practice/")}>Algebra</a>
-          <a className={route === "linear_algebra" ? "active" : ""} aria-current={route === "linear_algebra" ? "page" : undefined} href={siteHref("/linear-algebra/")}>Linear algebra</a>
+          {trackIds.map((id) => (
+            <a key={id} className={route === id ? "active" : ""} aria-current={route === id ? "page" : undefined} href={siteHref(tracks[id].path)}>{tracks[id].title}</a>
+          ))}
           <a className={route === "progress" ? "active" : ""} href={siteHref("/progress/")}>Progress</a>
           <a className={route === "changelog" ? "active" : ""} aria-current={route === "changelog" ? "page" : undefined} href={siteHref("/changelog/")}>Changelog</a>
         </nav>
@@ -154,7 +156,7 @@ function HomePage({ progress }: { progress: LocalProgressV1 }) {
           ))}
         </ol>
       </section>
-      <section className="linear-track-intro" aria-labelledby="linear-track-title">
+      <section className="linear-track-intro guided-track-intro" aria-labelledby="linear-track-title">
         <div>
           <p className="section-number">Five connected areas</p>
           <h2 id="linear-track-title">Linear algebra</h2>
@@ -167,14 +169,28 @@ function HomePage({ progress }: { progress: LocalProgressV1 }) {
           ))}
         </ol>
       </section>
+      <section className="guided-track-intro" aria-labelledby="statistics-track-title">
+        <div>
+          <h2 id="statistics-track-title">Statistics &amp; probability</h2>
+          <p>Start with permutations and combinations, or choose a topic below. From continuous random variables onward, you’ll use derivatives and integrals.</p>
+          <a className="button quiet" href={siteHref(tracks.statistics_probability.path)}>Practice statistics &amp; probability</a>
+        </div>
+        <ol>
+          {skills.filter((skill) => skill.track === "statistics_probability").map((skill) => (
+            <li key={skill.id}>
+              <strong><a href={siteHref(`${tracks.statistics_probability.path}?topic=${skill.id}`)}>{skill.title}</a></strong>
+              <span>{skill.description}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
     </div>
   );
 }
 
 function PracticePage({ progress, updateProgress, saving, track }: { progress: LocalProgressV1; updateProgress: UpdateProgress; saving: boolean; track: TrackId }) {
-  const trackSkillIds = track === "algebra" ? algebraSkillIds : linearAlgebraSkillIds;
+  const { skillIds: trackSkillIds, path: practicePath, title, preference, guidedLabel } = tracks[track];
   const trackSkills = skills.filter((item) => item.track === track);
-  const practicePath = track === "algebra" ? "/practice/" : "/linear-algebra/";
   const querySkill = new URLSearchParams(window.location.search).get("topic") as SkillId | null;
   const validQuerySkill = querySkill && trackSkillIds.includes(querySkill) ? querySkill : null;
   const [question, setQuestion] = useState<Question | null>(null);
@@ -225,7 +241,7 @@ function PracticePage({ progress, updateProgress, saving, track }: { progress: L
     if (reservationFailed) retryButtonRef.current?.focus();
   }, [reservationFailed]);
 
-  function makeAttempt(result: ValidationResult, revealed = solutionVisible): Attempt {
+  function makeAttempt(result: ValidationResult, submitted: string): Attempt {
     if (!question || !questionContext) throw new Error("No question is ready.");
     return {
       questionId: question.id,
@@ -234,21 +250,22 @@ function PracticePage({ progress, updateProgress, saving, track }: { progress: L
       seed: question.seed,
       skillId: question.skillId,
       difficulty: question.difficulty,
-      rawLatex: answer,
+      rawLatex: submitted,
       normalizedAnswer: result.normalizedAnswer,
       correct: result.correct,
       attemptCount: Math.max(attemptCount + 1, hintCount > 0 ? 2 : 1),
-      solutionRevealed: revealed,
+      solutionRevealed: solutionVisible,
       timestamp: new Date().toISOString()
     };
   }
 
-  async function submitAnswer() {
-    if (!question || !questionContext || !parseable || acceptedRef.current || saving) return;
-    const result = validateAnswer(question, answer);
+  async function submitAnswer(submitted = answer) {
+    if (!question || !questionContext || acceptedRef.current || saving) return;
+    const result = validateAnswer(question, submitted);
     if (!result.parseable) return;
+    setAnswer(submitted);
     acceptedRef.current = result.correct;
-    const attempt = makeAttempt(result);
+    const attempt = makeAttempt(result, submitted);
     const commit = await updateProgress((current) => recordAttempt(current, attempt));
     if (!commit?.applied) {
       acceptedRef.current = false;
@@ -273,7 +290,7 @@ function PracticePage({ progress, updateProgress, saving, track }: { progress: L
           feedback: "Question skipped.",
           retryEligible: false
         };
-        const attempt = makeAttempt(skippedResult, solutionVisible);
+        const attempt = makeAttempt(skippedResult, answer);
         nextProgress = applyRewardEvent(recordAttempt(nextProgress, attempt), {
           type: "skip", questionId: question.id, presentationId: questionContext.presentationId
         });
@@ -318,6 +335,12 @@ function PracticePage({ progress, updateProgress, saving, track }: { progress: L
     window.location.href = skillId ? siteHref(`${practicePath}?topic=${skillId}`) : siteHref(practicePath);
   }
 
+  function editAnswer(value: string) {
+    if (value === answer) return;
+    setAnswer(value);
+    if (!feedback?.correct) setFeedback(null);
+  }
+
   if (!question || !questionContext || !skill) {
     return (
       <div className="practice-page page-shell">
@@ -336,8 +359,8 @@ function PracticePage({ progress, updateProgress, saving, track }: { progress: L
     <div className="practice-page page-shell">
       <section className="practice-context" aria-label="Practice context">
         <div>
-          {track === "linear_algebra" ? (
-            <p className="plain-kicker">Guided linear algebra</p>
+          {track !== "algebra" ? (
+            <p className="plain-kicker">Guided {title.toLowerCase()}</p>
           ) : questionContext.calibrationIndex !== null ? (
             <p className="plain-kicker">Calibration {Math.min(questionContext.calibrationIndex + 1, algebraSkillIds.length)} of {algebraSkillIds.length}</p>
           ) : (
@@ -350,10 +373,10 @@ function PracticePage({ progress, updateProgress, saving, track }: { progress: L
           Practice focus
           <select
             disabled={saving}
-            value={validQuerySkill ?? (track === "algebra" ? progress.preferredSkill : progress.preferredLinearSkill) ?? "adaptive"}
+            value={validQuerySkill ?? progress[preference] ?? "adaptive"}
             onChange={(event) => chooseTopic(event.target.value === "adaptive" ? null : (event.target.value as SkillId))}
           >
-            <option value="adaptive">{track === "algebra" ? "Adaptive queue" : "Guided queue"}</option>
+            <option value="adaptive">{guidedLabel}</option>
             {trackSkills.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
           </select>
         </label>
@@ -370,26 +393,28 @@ function PracticePage({ progress, updateProgress, saving, track }: { progress: L
           <span className="problem-code">Problem {question.seed.toString(36).toUpperCase()}</span>
         </div>
         <p id="problem-instruction" className="problem-instruction">{question.instruction}</p>
-        <StaticMath className="problem-equation" latex={question.promptLatex} label={question.instruction} fitToContainer />
+        <StaticMath className="problem-equation" latex={question.promptLatex} label={question.instruction} description={question.promptDescription} fitToContainer />
         <p className="paper-prompt">Work this out on paper, then enter your final answer.</p>
 
         <div className="answer-area">
-          <label id="answer-label" className="answer-label">Final answer</label>
-          <MathAnswerInput
-            value={answer}
-            onChange={(value) => {
-              setAnswer(value);
-              if (!feedback?.correct) setFeedback(null);
-            }}
-            onSubmit={submitAnswer}
-            disabled={Boolean(feedback?.correct)}
-            readOnly={saving}
-            label={`Final ${track === "algebra" ? "algebra" : "linear algebra"} answer`}
-            matrixShape={question.answer.matrixShape}
-          />
+          {question.answer.kind === "distribution" ? (
+            <DistributionAnswerInput value={answer} onChange={editAnswer} onSubmit={submitAnswer} disabled={Boolean(feedback?.correct)} readOnly={saving} />
+          ) : (
+            <>
+              <label id="answer-label" className="answer-label">Final answer</label>
+              <MathAnswerInput value={answer} onChange={editAnswer} onSubmit={submitAnswer} disabled={Boolean(feedback?.correct)}
+                readOnly={saving} label={`Final ${title.toLowerCase()} answer`} matrixShape={question.answer.matrixShape} />
+            </>
+          )}
           <details className="syntax-help">
             <summary>Answer format help</summary>
-            <p>Use the math keyboard for fractions, powers, and roots. Enter pairs as (x, y), triples as (x, y, z), and inequalities in interval notation. Infinity always uses a parenthesis. For matrix answers, use the insert button and fill each cell.</p>
+            {track === "statistics_probability" ? (
+              <p>{question.answer.kind === "distribution"
+                ? "Choose the distribution you found on paper and enter each parameter. You can use fractions and other exact expressions."
+                : "Enter the value or formula the question asks for. You can use the math keyboard for fractions, powers, and roots."}</p>
+            ) : (
+              <p>Use the math keyboard for fractions, powers, and roots. Enter pairs as (x, y), triples as (x, y, z), and inequalities in interval notation. Infinity always uses a parenthesis. For matrix answers, use the insert button and fill each cell.</p>
+            )}
           </details>
         </div>
 
@@ -416,7 +441,7 @@ function PracticePage({ progress, updateProgress, saving, track }: { progress: L
             <button className="button primary" type="button" onClick={() => loadNext(false)} disabled={saving}>Load the next question</button>
           ) : (
             <>
-              <button className="button primary" type="button" onClick={submitAnswer} disabled={!parseable || saving}>Check answer</button>
+              <button className="button primary" type="button" onClick={() => submitAnswer()} disabled={!parseable || saving}>Check answer</button>
               <button className="button quiet" type="button" onClick={() => loadNext(true)} disabled={saving}>Skip this question</button>
             </>
           )}
@@ -591,9 +616,12 @@ function ProgressPage({ progress, resetProgress, saving }: { progress: LocalProg
       {attempts.length === 0 ? (
         <section className="progress-empty" aria-labelledby="empty-title">
           <h2 id="empty-title">No answers recorded yet.</h2>
-          <p>Complete the first calibration question to start a local progress record.</p>
-          <a className="button primary" href={siteHref("/practice/")}>Answer the first question</a>
-          <a className="text-link" href={siteHref("/linear-algebra/")}>Explore linear algebra</a>
+          <p>Choose a subject. Your answers and progress will appear here.</p>
+          <div className="home-actions">
+            <a className="button primary" href={siteHref("/practice/")}>Answer the first question</a>
+            <a className="text-link" href={siteHref("/linear-algebra/")}>Explore linear algebra</a>
+            <a className="text-link" href={siteHref(tracks.statistics_probability.path)}>Explore statistics &amp; probability</a>
+          </div>
         </section>
       ) : (
         <>
@@ -618,9 +646,9 @@ function ProgressPage({ progress, resetProgress, saving }: { progress: LocalProg
               <p>The bars reflect only the answers stored in this browser.</p>
             </div>
             <div className="mastery-groups">
-              {(["algebra", "linear_algebra"] as TrackId[]).map((trackId) => (
+              {trackIds.map((trackId) => (
                 <div className="mastery-rows" key={trackId}>
-                  <h3 className="mastery-track-title">{trackId === "algebra" ? "Algebra" : "Linear algebra"}</h3>
+                  <h3 className="mastery-track-title">{tracks[trackId].title}</h3>
                   {skills.filter((skill) => skill.track === trackId).map((skill) => {
                     const score = progress.mastery[skill.id];
                     const hasAnswerRecord = attempts.some((attempt) => attempt.skillId === skill.id) || score !== 0.35;
@@ -636,7 +664,7 @@ function ProgressPage({ progress, resetProgress, saving }: { progress: LocalProg
                             <span style={{ width: `${score * 100}%` }} />
                           </div>
                         ) : <span className="mastery-unstarted">Readiness appears after an answer.</span>}
-                        <a href={siteHref(`${trackId === "algebra" ? "/practice/" : "/linear-algebra/"}?topic=${skill.id}`)}>Practice this topic</a>
+                        <a href={siteHref(`${tracks[trackId].path}?topic=${skill.id}`)}>Practice this topic</a>
                       </article>
                     );
                   })}
@@ -741,8 +769,8 @@ export default function App() {
       <RecoveryNotice visible={initial.recovered} />
       {storageError && <div className="system-notice" role="alert">Progress could not be saved. {storageError}</div>}
       {route === "home" && <HomePage progress={progress} />}
-      {route === "practice" && <PracticePage key={progress.resetId} progress={progress} updateProgress={updateProgress} saving={saving} track="algebra" />}
-      {route === "linear_algebra" && <PracticePage key={progress.resetId} progress={progress} updateProgress={updateProgress} saving={saving} track="linear_algebra" />}
+      {(route === "algebra" || route === "linear_algebra" || route === "statistics_probability") &&
+        <PracticePage key={progress.resetId} progress={progress} updateProgress={updateProgress} saving={saving} track={route} />}
       {route === "progress" && <ProgressPage progress={progress} resetProgress={resetProgress} saving={saving} />}
       {route === "changelog" && <ChangelogPage />}
       {route === "privacy" && <PrivacyPage />}

@@ -408,7 +408,7 @@ math-field.preview-equation {
   line-height: 1.5;
 }
 
-.linear-track-intro {
+.guided-track-intro {
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: minmax(14rem, 0.55fr) minmax(0, 1fr);
@@ -417,34 +417,41 @@ math-field.preview-equation {
   padding-top: 2.5rem;
 }
 
-.linear-track-intro p:not(.section-number) {
+.guided-track-intro p:not(.section-number) {
   max-width: 42ch;
   color: var(--muted-ink);
   line-height: 1.55;
 }
 
-.linear-track-intro ol {
+.guided-track-intro ol {
   margin: 0;
   padding-left: 1.35rem;
 }
 
-.linear-track-intro li {
+.guided-track-intro li {
   padding: 0.45rem 0 0.8rem 0.4rem;
 }
 
-.linear-track-intro li + li {
+.guided-track-intro li + li {
   border-top: 1px solid var(--rule);
 }
 
-.linear-track-intro li span {
+.guided-track-intro li span {
   display: block;
   margin-top: 0.25rem;
   color: var(--muted-ink);
 }
 
-.linear-track-intro li strong,
-.linear-track-intro li span {
+.guided-track-intro li strong,
+.guided-track-intro li span {
   overflow-wrap: anywhere;
+}
+
+.guided-track-intro li a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  text-underline-offset: 0.2em;
 }
 
 .practice-page {
@@ -696,9 +703,11 @@ math-field.math-answer-field::part(placeholder) {
 
 .syntax-help summary {
   min-height: 44px;
-  display: flex;
-  align-items: center;
-  width: max-content;
+  display: list-item;
+  width: fit-content;
+  max-width: 100%;
+  padding-block: 0.65rem;
+  overflow-wrap: anywhere;
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 0.2rem;
@@ -1188,7 +1197,7 @@ math-field.math-answer-field::part(placeholder) {
 }
 
 @media (max-width: 54rem) {
-  .linear-track-intro {
+  .guided-track-intro {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -1229,7 +1238,7 @@ math-field.math-answer-field::part(placeholder) {
 
   .home-layout,
   .topic-index,
-  .linear-track-intro,
+  .guided-track-intro,
   .practice-page {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1351,6 +1360,8 @@ math-field.math-answer-field::part(placeholder) {
 
   .site-header nav a {
     justify-content: center;
+    text-align: center;
+    overflow-wrap: anywhere;
   }
 }
 

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { generateQuestion } from "../../src/math/generators";
 import { createDefaultProgress } from "../../src/state/storage";
+import { getSkill, tracks } from "../../src/data/skills";
 import type { SkillId } from "../../src/types";
 
 async function selectSeed(page: Page, seed: number) {
@@ -43,7 +44,13 @@ for (const scenario of [
   { skill: "matrices", seed: 3, difficulty: "hard" },
   { skill: "linear_systems", seed: 2, difficulty: "hard" },
   { skill: "determinants_inverses", seed: 2, difficulty: "hard" },
-  { skill: "eigen", seed: 3, difficulty: "hard" }
+  { skill: "eigen", seed: 3, difficulty: "hard" },
+  { skill: "discrete_variables", seed: 2, difficulty: "hard" },
+  { skill: "conditional_probability", seed: 3, difficulty: "hard" },
+  { skill: "transformations", seed: 3, difficulty: "hard" },
+  { skill: "sampling_distributions", seed: 3, difficulty: "hard" },
+  { skill: "one_sample_laws", seed: 2, difficulty: "hard" },
+  { skill: "two_sample_laws", seed: 2, difficulty: "hard" }
 ] satisfies { skill: SkillId; seed: number; difficulty: "easy" | "hard" }[]) {
   test(`fits ${scenario.skill} seed ${scenario.seed} inside the question box when resized`, async ({ page }) => {
     const progress = createDefaultProgress();
@@ -53,11 +60,14 @@ for (const scenario of [
       localStorage.setItem("russelli.progress.v1", JSON.stringify(initial));
     }, progress);
     await page.setViewportSize({ width: 320, height: 900 });
-    const path = ["matrices", "linear_systems", "determinants_inverses", "eigen"].includes(scenario.skill)
-      ? "/linear-algebra/" : "/practice/";
+    const path = tracks[getSkill(scenario.skill).track].path;
     await page.goto(`${path}?topic=${scenario.skill}`);
     await expect(page.locator("math-field.problem-equation")).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
+    if (scenario.skill === "discrete_variables") {
+      await expect(page.locator("math-field.problem-equation")).toHaveAttribute("aria-label",
+        /(?:X equals -?\d+ with probability \d+ over \d+\. ){3}Find the variance/);
+    }
     if (scenario.seed === 23594) {
       expect(generateQuestion("functions", scenario.seed, "easy").promptLatex).toBe(
         "f(x)=-6x-4,\\quad g(x)=x^2+2,\\quad (f\\circ g)(2)"

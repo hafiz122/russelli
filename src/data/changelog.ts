@@ -8,6 +8,16 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    id: "statistics-probability",
+    date: "2026-11-21",
+    title: "Statistics & probability practice",
+    summary: "Follow eight topics from permutations and combinations to sampling distributions, or go straight to a topic you want to practice.",
+    changes: [
+      "Work out probabilities, derive densities, and identify the sampling law of a statistic.",
+      "For a distribution answer, choose the family and enter its parameters together."
+    ]
+  },
+  {
     id: "linear-algebra",
     date: "2026-11-10",
     title: "Linear algebra practice",

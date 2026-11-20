@@ -5,6 +5,18 @@ import { createDefaultProgress } from "../src/state/storage";
 const zeroRandom = () => 0;
 
 describe("question reservations", () => {
+  it("reserves statistics questions outside an ongoing algebra calibration", () => {
+    const initial = { ...createDefaultProgress(), calibrationIndex: 3 };
+    const reserved = reservePresentation(initial, {
+      track: "statistics_probability", topicOverride: null, presentationId: "statistics",
+      lastForms: {}, randomUint32: zeroRandom
+    });
+    expect(reserved.question.skillId).toBe("counting");
+    expect(reserved.progress.calibrationIndex).toBe(3);
+    expect(reserved.calibrationIndex).toBeNull();
+    expect(reserved.progress.recentPresentations[0].calibrationIndex).toBeNull();
+  });
+
   it("records an initial display once and returns it on a repeated reservation", () => {
     const initial = createDefaultProgress();
     const options = {

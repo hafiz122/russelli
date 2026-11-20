@@ -11,9 +11,18 @@ export type SkillId =
   | "matrices"
   | "linear_systems"
   | "determinants_inverses"
-  | "eigen";
+  | "eigen"
+  | "counting"
+  | "conditional_probability"
+  | "discrete_variables"
+  | "continuous_variables"
+  | "transformations"
+  | "sampling_distributions"
+  | "one_sample_laws"
+  | "two_sample_laws";
 
-export type TrackId = "algebra" | "linear_algebra";
+export type TrackId = "algebra" | "linear_algebra" | "statistics_probability";
+export type DistributionFamily = "normal" | "t" | "chi_square" | "f";
 
 export type Difficulty = "easy" | "medium" | "hard";
 
@@ -25,14 +34,17 @@ export type AnswerKind =
   | "ordered_triple"
   | "interval"
   | "matrix"
-  | "vector_direction";
+  | "vector_direction"
+  | "distribution";
 
 export interface AnswerSpec {
   latex: string;
   kind: AnswerKind;
+  equivalentLatex?: string[];
   requiresFactoredForm?: boolean;
   forbiddenFactorLatex?: string;
   matrixShape?: { rows: number; cols: number };
+  distribution?: { family: DistributionFamily; parameters: string[] };
 }
 
 export interface Question {
@@ -44,6 +56,7 @@ export interface Question {
   formId: string;
   problemKey: string;
   promptLatex: string;
+  promptDescription?: string;
   instruction: string;
   answer: AnswerSpec;
   hints: string[];
@@ -105,6 +118,7 @@ export interface LocalProgressV1 {
   recentPresentations: RecentPresentation[];
   preferredSkill: SkillId | null;
   preferredLinearSkill: SkillId | null;
+  preferredStatisticsSkill: SkillId | null;
   totalPoints: number;
   currentStreak: number;
   bestStreak: number;
