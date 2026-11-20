@@ -126,6 +126,14 @@ test("restores an eight-topic statistics record and continues its guided path", 
 });
 
 test("wraps the interpretation and keeps wide worked equations keyboard-scrollable", async ({ page }) => {
+  const progress = createDefaultProgress();
+  progress.mastery.comparing_means = 0.9;
+  await page.addInitScript((record) => {
+    localStorage.setItem("russelli.progress.v1", JSON.stringify(record));
+    sessionStorage.setItem("russelli.last-forms.v1", JSON.stringify({
+      resetId: record.resetId, forms: { comparing_means: "paired_t" }
+    }));
+  }, progress);
   await page.goto("/statistics-probability/?topic=comparing_means");
   await page.getByRole("button", { name: "Show worked solution" }).click();
   const conclusion = page.locator(".worked-conclusion");
@@ -134,15 +142,18 @@ test("wraps the interpretation and keeps wide worked equations keyboard-scrollab
     await page.setViewportSize({ width, height: 900 });
     await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
     await expect.poll(() => conclusion.evaluate(p => p.scrollWidth <= p.clientWidth + 1)).toBe(true);
-    const wide = page.locator(".worked-solution .scrollable-math[tabindex='0']").first();
-    await expect(wide).toBeVisible();
-    await wide.focus();
-    await page.keyboard.press("ArrowRight");
-    await expect.poll(() => wide.evaluate(node => node.scrollLeft)).toBeGreaterThan(0);
-    await expect.poll(() => wide.evaluate(node => {
-      const field = node.querySelector("math-field")!;
-      const content = field.shadowRoot!.querySelector("[part=content]")!;
-      return content.scrollWidth <= content.clientWidth + 1 && node.scrollWidth > node.clientWidth;
-    })).toBe(true);
+    const formulas = page.locator(".worked-solution .scrollable-math");
+    await expect.poll(() => formulas.evaluateAll(nodes => nodes.length > 0 && nodes.every(node => {
+      const content = node.querySelector("math-field")?.shadowRoot?.querySelector("[part=content]");
+      if (!content || content.scrollWidth > content.clientWidth + 1) return false;
+      return node.scrollWidth <= node.clientWidth + 1 || node.getAttribute("tabindex") === "0";
+    }))).toBe(true);
+    if (width === 320) {
+      const wide = page.locator(".worked-solution .scrollable-math[tabindex='0']").first();
+      await expect(wide).toBeVisible();
+      await wide.focus();
+      await page.keyboard.press("ArrowRight");
+      await expect.poll(() => wide.evaluate(node => node.scrollLeft)).toBeGreaterThan(0);
+    }
   }
 });
