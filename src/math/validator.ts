@@ -2,6 +2,7 @@ import { ComputeEngine, isFunction, isNumber, type BoxedExpression } from "@cort
 import { statisticsSkillIds } from "../data/skills";
 import type { Question, ValidationResult } from "../types";
 import { distributionLatex, readDistribution } from "./distributions";
+import { formatPValue, readTestAnswer } from "./testAnswers";
 
 const ce = new ComputeEngine();
 
@@ -122,6 +123,24 @@ function parseExactValue(latex: string): BoxedExpression | undefined {
     `\\frac{${whole}${decimals}}{10^{${decimals.length}}}`
   );
   return parse(value, true, "rational")?.evaluate();
+}
+
+function parseTestResult(latex: string) {
+  const answer = readTestAnswer(latex);
+  if (!answer?.decision || !answer.pValue.trim() || answer.pValue.includes("\\placeholder")) return null;
+  const probability = parseExactValue(answer.pValue);
+  if (!probability || probability.freeVariables.length) return null;
+  const number = probability.N();
+  if (!isNumber(number) || !Number.isFinite(number.re) || number.im !== 0 ||
+      probability.isLess(0) !== false || probability.isGreater(1) !== false) return null;
+  return { probability, decision: answer.decision };
+}
+
+function roundsToPValue(probability: BoxedExpression, reference: number): boolean {
+  const tenThousandths = Number(formatPValue(reference).replace(".", ""));
+  const lower = ce.box(["Rational", 2 * tenThousandths - 1, 20_000]);
+  const upper = ce.box(["Rational", 2 * tenThousandths + 1, 20_000]);
+  return probability.isLess(lower) === false && probability.isLess(upper) === true;
 }
 
 function equalEquations(actual: string, expected: string): boolean {
@@ -294,6 +313,7 @@ function equalIntervals(actual: ParsedInterval, expected: ParsedInterval): boole
 
 export function isParseableAnswer(question: Question, latex: string): boolean {
   if (!latex.trim()) return false;
+  if (question.answer.kind === "hypothesis_test") return parseTestResult(latex) !== null;
   if (question.answer.kind === "distribution") {
     const law = readDistribution(latex);
     return Boolean(law && law.parameters.every((parameter) => {
@@ -312,6 +332,18 @@ export function isParseableAnswer(question: Question, latex: string): boolean {
 }
 
 export function validateAnswer(question: Question, latex: string): ValidationResult {
+  if (question.answer.kind === "hypothesis_test") {
+    const actual = parseTestResult(latex);
+    if (!actual) {
+      return { parseable: false, correct: false, normalizedAnswer: "", retryEligible: true,
+        feedback: "Enter a p-value from 0 to 1 and choose a decision." };
+    }
+    const expected = question.answer.testResult;
+    const correct = Boolean(expected && (actual.decision === "reject") === (expected.pValue <= expected.alpha) &&
+      roundsToPValue(actual.probability, expected.pValue));
+    return { parseable: true, correct, normalizedAnswer: latex, retryEligible: !correct,
+      feedback: correct ? "Your p-value and decision are correct." : "Check the tail probability and compare it with the significance level." };
+  }
   if (!isParseableAnswer(question, latex)) {
     return {
       parseable: false,

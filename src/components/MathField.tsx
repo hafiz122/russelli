@@ -118,6 +118,7 @@ interface StaticMathProps {
   description?: string;
   className?: string;
   fitToContainer?: boolean;
+  scrollIfWide?: boolean;
 }
 
 function describeMatrices(latex: string): string {
@@ -141,7 +142,7 @@ function spokenDescription(latex: string): string {
   }
 }
 
-export function StaticMath({ latex, label, description, className = "", fitToContainer = false }: StaticMathProps) {
+export function StaticMath({ latex, label, description, className = "", fitToContainer = false, scrollIfWide = false }: StaticMathProps) {
   const hostRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -154,6 +155,21 @@ export function StaticMath({ latex, label, description, className = "", fitToCon
     host.append(field);
     const spokenMath = description || spokenDescription(latex);
     field.setAttribute("aria-label", label ? `${label} ${spokenMath}` : spokenMath);
+    if (scrollIfWide) {
+      field.tabIndex = -1;
+      const updateFocus = () => {
+        if (host.scrollWidth > host.clientWidth + 1) host.tabIndex = 0;
+        else host.removeAttribute("tabindex");
+      };
+      const observer = new ResizeObserver(updateFocus);
+      observer.observe(host);
+      observer.observe(field);
+      return () => {
+        observer.disconnect();
+        host.removeAttribute("tabindex");
+        field.remove();
+      };
+    }
     if (!fitToContainer) return () => field.remove();
 
     const clauses = latex.includes("\\begin{gathered}") ? [latex] : latex.split(/,\s*\\quad\s*/);
@@ -218,8 +234,9 @@ export function StaticMath({ latex, label, description, className = "", fitToCon
       document.fonts.removeEventListener("loadingdone", fontsChanged);
       field.remove();
     };
-  }, [className, fitToContainer, label, description, latex]);
+  }, [className, fitToContainer, label, description, latex, scrollIfWide]);
 
-  return <span ref={hostRef} className={`static-math-host${fitToContainer ? " responsive-math" : ""}`} />;
+  return <span ref={hostRef} className={`static-math-host${fitToContainer ? " responsive-math" : ""}${scrollIfWide ? " scrollable-math" : ""}`}
+    role={scrollIfWide ? "group" : undefined} aria-label={scrollIfWide ? label : undefined} />;
 }
 

@@ -1,0 +1,49 @@
+.test-answer,
+.test-decision {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.test-answer legend {
+  padding: 0;
+}
+
+.test-parameter-label,
+.test-decision legend {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.test-precision {
+  margin: 0.15rem 0 0.45rem;
+  color: var(--muted-ink);
+  font-size: 0.9rem;
+}
+
+.test-decision {
+  margin-top: 0.85rem;
+}
+
+.test-decision label {
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 44px;
+  gap: 0.55rem;
+  cursor: pointer;
+}
+
+.test-decision input {
+  flex: none;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0 0.2rem;
+  accent-color: var(--focus);
+  cursor: inherit;
+}
+
+.test-decision:disabled label {
+  cursor: default;
+}

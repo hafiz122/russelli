@@ -168,6 +168,62 @@ export const skills: SkillDefinition[] = [
     description: "Work with differences of sample means and ratios of sample variances from independent normal samples.",
     prerequisites: ["one_sample_laws"],
     track: "statistics_probability"
+  },
+  {
+    id: "hypothesis_testing",
+    title: "Hypothesis testing",
+    shortTitle: "Hypothesis testing",
+    description: "Translate a claim into a one- or two-sided test, find its p-value, and decide whether to reject the null hypothesis.",
+    prerequisites: ["sampling_distributions"],
+    track: "statistics_probability"
+  },
+  {
+    id: "one_sample_tests",
+    title: "Tests for one mean",
+    shortTitle: "One mean",
+    description: "Test a claim about a population mean using a known standard deviation or an estimate from the sample.",
+    prerequisites: ["hypothesis_testing", "one_sample_laws"],
+    track: "statistics_probability"
+  },
+  {
+    id: "comparing_means",
+    title: "Comparing two means",
+    shortTitle: "Comparing means",
+    description: "Test a mean difference using paired observations or two independent samples with equal population variances.",
+    prerequisites: ["one_sample_tests", "two_sample_laws"],
+    track: "statistics_probability"
+  },
+  {
+    id: "proportion_tests",
+    title: "Tests for proportions",
+    shortTitle: "Proportions",
+    description: "Use an exact binomial test for one proportion and a pooled z test to compare two proportions.",
+    prerequisites: ["hypothesis_testing", "discrete_variables"],
+    track: "statistics_probability"
+  },
+  {
+    id: "variance_tests",
+    title: "Tests for variances",
+    shortTitle: "Variances",
+    description: "Test a single variance with chi-square or compare two normal population variances with F.",
+    prerequisites: ["hypothesis_testing", "two_sample_laws"],
+    track: "statistics_probability"
+  },
+  {
+    id: "errors_power",
+    title: "Errors and power",
+    shortTitle: "Errors and power",
+    description: "Calculate the chance of rejecting under the null and the chance of detecting a specified alternative.",
+    prerequisites: ["proportion_tests"],
+    track: "statistics_probability"
+  },
+  {
+    id: "likelihood_ratio",
+    title: "Likelihood-ratio tests",
+    shortTitle: "Likelihood ratios",
+    description: "Find a most-powerful binomial cutoff or compare the null likelihood with the largest attainable likelihood.",
+    prerequisites: ["errors_power"],
+    track: "statistics_probability"
   }
 ];
 

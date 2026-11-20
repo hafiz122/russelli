@@ -4,6 +4,9 @@ import { validateAnswer } from "./validator";
 import { linearAlgebraFormIds, linearAlgebraGenerators } from "./linearAlgebra";
 import { statisticsFoundationFormIds, statisticsFoundationGenerators } from "./statisticsFoundations";
 import { samplingFormIds, samplingGenerators } from "./samplingDistributions";
+import { meanTestFormIds, meanTestGenerators } from "./meanTests";
+import { proportionVarianceFormIds, proportionVarianceGenerators } from "./proportionVarianceTests";
+import { theoryFormIds, theoryGenerators } from "./testingTheory";
 import type { Difficulty, Question, QuestionGenerator, SkillId } from "../types";
 
 const ranges: Record<Difficulty, [number, number]> = {
@@ -26,7 +29,10 @@ export const formIds: Record<SkillId, readonly [string, string]> = {
   functions: ["composition", "inverse"],
   ...linearAlgebraFormIds,
   ...statisticsFoundationFormIds,
-  ...samplingFormIds
+  ...samplingFormIds,
+  ...meanTestFormIds,
+  ...proportionVarianceFormIds,
+  ...theoryFormIds
 };
 
 function problemKey(skillId: SkillId, formId: string, ...values: Array<number | string>): string {
@@ -508,7 +514,10 @@ export const generators: Record<SkillId, QuestionGenerator> = {
   functions,
   ...linearAlgebraGenerators,
   ...statisticsFoundationGenerators,
-  ...samplingGenerators
+  ...samplingGenerators,
+  ...meanTestGenerators,
+  ...proportionVarianceGenerators,
+  ...theoryGenerators
 };
 
 export function generateQuestion(skillId: SkillId, seed: number, difficulty: Difficulty): Question {

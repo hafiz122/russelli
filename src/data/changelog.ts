@@ -8,6 +8,16 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    id: "hypothesis-testing",
+    date: "2026-11-21",
+    title: "Hypothesis testing practice",
+    summary: "Test claims about means, proportions, and variances using sample data and probability tables.",
+    changes: [
+      "Enter a p-value and choose whether to reject the null hypothesis. Each worked solution explains the conclusion in context.",
+      "Practice Type I and Type II errors, power, most-powerful tests, and likelihood ratios."
+    ]
+  },
+  {
     id: "statistics-probability",
     date: "2026-11-21",
     title: "Statistics & probability practice",

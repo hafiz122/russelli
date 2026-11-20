@@ -19,7 +19,14 @@ export type SkillId =
   | "transformations"
   | "sampling_distributions"
   | "one_sample_laws"
-  | "two_sample_laws";
+  | "two_sample_laws"
+  | "hypothesis_testing"
+  | "one_sample_tests"
+  | "comparing_means"
+  | "proportion_tests"
+  | "variance_tests"
+  | "errors_power"
+  | "likelihood_ratio";
 
 export type TrackId = "algebra" | "linear_algebra" | "statistics_probability";
 export type DistributionFamily = "normal" | "t" | "chi_square" | "f";
@@ -35,7 +42,8 @@ export type AnswerKind =
   | "interval"
   | "matrix"
   | "vector_direction"
-  | "distribution";
+  | "distribution"
+  | "hypothesis_test";
 
 export interface AnswerSpec {
   latex: string;
@@ -45,6 +53,13 @@ export interface AnswerSpec {
   forbiddenFactorLatex?: string;
   matrixShape?: { rows: number; cols: number };
   distribution?: { family: DistributionFamily; parameters: string[] };
+  testResult?: { pValue: number; alpha: number };
+}
+
+export interface ReferenceTable {
+  caption: string;
+  headers: string[];
+  rows: string[][];
 }
 
 export interface Question {
@@ -57,10 +72,12 @@ export interface Question {
   problemKey: string;
   promptLatex: string;
   promptDescription?: string;
+  referenceTable?: ReferenceTable;
   instruction: string;
   answer: AnswerSpec;
   hints: string[];
   workedSolution: string[];
+  workedConclusion?: string;
 }
 
 export interface RecentPresentation {

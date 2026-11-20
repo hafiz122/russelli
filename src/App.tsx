@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MathAnswerInput, StaticMath } from "./components/MathField";
 import { DistributionAnswerInput } from "./components/DistributionAnswer";
+import { TestAnswerInput } from "./components/TestAnswer";
 import { AnalyticsConsent, useAnalyticsConsent } from "./components/AnalyticsConsent";
 import { algebraSkillIds, getSkill, skills, trackIds, tracks } from "./data/skills";
 import { changelog } from "./data/changelog";
@@ -9,7 +10,7 @@ import { recordAttempt, setPreferredSkill } from "./state/adaptive";
 import { commitProgress, loadProgress, resetStoredProgress, STORAGE_KEY, type ProgressCommit, type ProgressUpdate } from "./state/storage";
 import { applyRewardEvent } from "./state/rewards";
 import { reservePresentation, type Reservation } from "./state/reservation";
-import type { Attempt, LocalProgressV1, Question, SkillId, TrackId, ValidationResult } from "./types";
+import type { Attempt, LocalProgressV1, Question, ReferenceTable, SkillId, TrackId, ValidationResult } from "./types";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 type UpdateProgress = (update: ProgressUpdate) => Promise<ProgressCommit | null>;
@@ -172,7 +173,7 @@ function HomePage({ progress }: { progress: LocalProgressV1 }) {
       <section className="guided-track-intro" aria-labelledby="statistics-track-title">
         <div>
           <h2 id="statistics-track-title">Statistics &amp; probability</h2>
-          <p>Start with permutations and combinations, or choose a topic below. From continuous random variables onward, you’ll use derivatives and integrals.</p>
+          <p>Start with permutations and combinations, use calculus to study continuous distributions, or test a claim about a population. Choose any topic below.</p>
           <a className="button quiet" href={siteHref(tracks.statistics_probability.path)}>Practice statistics &amp; probability</a>
         </div>
         <ol>
@@ -184,6 +185,32 @@ function HomePage({ progress }: { progress: LocalProgressV1 }) {
           ))}
         </ol>
       </section>
+    </div>
+  );
+}
+
+function ProbabilityReference({ table }: { table: ReferenceTable }) {
+  return (
+    <div className="reference-wrap">
+      <table className="probability-reference">
+        <caption>{table.caption}</caption>
+        <thead>
+          <tr>{table.headers.map(header => <th key={header} scope="col">{header}</th>)}</tr>
+        </thead>
+        <tbody>
+          {table.rows.map(row => (
+            <tr key={row[0]}>
+              {row.map((value, i) => {
+                const Cell = i === 0 ? "th" : "td";
+                return <Cell key={table.headers[i]} scope={i === 0 ? "row" : undefined}>
+                  <span className="reference-label" aria-hidden="true">{table.headers[i]}</span>
+                  <span className="reference-value">{value}</span>
+                </Cell>;
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -394,11 +421,14 @@ function PracticePage({ progress, updateProgress, saving, track }: { progress: L
         </div>
         <p id="problem-instruction" className="problem-instruction">{question.instruction}</p>
         <StaticMath className="problem-equation" latex={question.promptLatex} label={question.instruction} description={question.promptDescription} fitToContainer />
+        {question.referenceTable && <ProbabilityReference table={question.referenceTable} />}
         <p className="paper-prompt">Work this out on paper, then enter your final answer.</p>
 
         <div className="answer-area">
           {question.answer.kind === "distribution" ? (
             <DistributionAnswerInput value={answer} onChange={editAnswer} onSubmit={submitAnswer} disabled={Boolean(feedback?.correct)} readOnly={saving} />
+          ) : question.answer.kind === "hypothesis_test" ? (
+            <TestAnswerInput value={answer} onChange={editAnswer} onSubmit={submitAnswer} disabled={Boolean(feedback?.correct)} readOnly={saving} />
           ) : (
             <>
               <label id="answer-label" className="answer-label">Final answer</label>
@@ -411,6 +441,8 @@ function PracticePage({ progress, updateProgress, saving, track }: { progress: L
             {track === "statistics_probability" ? (
               <p>{question.answer.kind === "distribution"
                 ? "Choose the distribution you found on paper and enter each parameter. You can use fractions and other exact expressions."
+                : question.answer.kind === "hypothesis_test"
+                ? "Compare the unrounded p-value with the stated significance level to choose your decision. Then round the p-value to four decimal places for your answer."
                 : "Enter the value or formula the question asks for. You can use the math keyboard for fractions, powers, and roots."}</p>
             ) : (
               <p>Use the math keyboard for fractions, powers, and roots. Enter pairs as (x, y), triples as (x, y, z), and inequalities in interval notation. Infinity always uses a parenthesis. For matrix answers, use the insert button and fill each cell.</p>
@@ -471,9 +503,10 @@ function PracticePage({ progress, updateProgress, saving, track }: { progress: L
             <h2>Worked solution</h2>
             <ol>
               {question.workedSolution.map((step, index) => (
-                <li key={`${step}-${index}`}><StaticMath latex={step} label={`Solution step ${index + 1}`} /></li>
+                <li key={`${step}-${index}`}><StaticMath latex={step} label={`Solution step ${index + 1}`} scrollIfWide={track === "statistics_probability"} /></li>
               ))}
             </ol>
+            {question.workedConclusion && <p className="worked-conclusion">{question.workedConclusion}</p>}
           </div>
         )}
       </aside>

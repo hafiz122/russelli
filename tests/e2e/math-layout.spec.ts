@@ -50,7 +50,16 @@ for (const scenario of [
   { skill: "transformations", seed: 3, difficulty: "hard" },
   { skill: "sampling_distributions", seed: 3, difficulty: "hard" },
   { skill: "one_sample_laws", seed: 2, difficulty: "hard" },
-  { skill: "two_sample_laws", seed: 2, difficulty: "hard" }
+  { skill: "two_sample_laws", seed: 2, difficulty: "hard" },
+  { skill: "hypothesis_testing", seed: 2, difficulty: "hard" },
+  { skill: "one_sample_tests", seed: 3, difficulty: "hard" },
+  { skill: "comparing_means", seed: 2, difficulty: "hard" },
+  { skill: "comparing_means", seed: 3, difficulty: "hard" },
+  { skill: "proportion_tests", seed: 3, difficulty: "hard" },
+  { skill: "variance_tests", seed: 3, difficulty: "hard" },
+  { skill: "variance_tests", seed: 9725, difficulty: "hard" },
+  { skill: "errors_power", seed: 2, difficulty: "hard" },
+  { skill: "likelihood_ratio", seed: 3, difficulty: "hard" }
 ] satisfies { skill: SkillId; seed: number; difficulty: "easy" | "hard" }[]) {
   test(`fits ${scenario.skill} seed ${scenario.seed} inside the question box when resized`, async ({ page }) => {
     const progress = createDefaultProgress();

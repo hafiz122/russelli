@@ -635,6 +635,83 @@ math-field.problem-equation {
   font-size: inherit;
 }
 
+.reference-wrap {
+  container-type: inline-size;
+}
+
+.reference-label {
+  display: none;
+}
+
+.probability-reference {
+  width: min(100%, 25rem);
+  margin: 0 auto 1.5rem;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.probability-reference caption {
+  margin-bottom: 0.45rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.probability-reference th,
+.probability-reference td {
+  padding: 0.3em 0.2em;
+  border-bottom: 1px solid var(--rule);
+  text-align: right;
+}
+
+.probability-reference tbody th {
+  font-weight: normal;
+}
+
+@container (max-width: 15em) {
+  .probability-reference,
+  .probability-reference caption,
+  .probability-reference tbody,
+  .probability-reference tbody tr {
+    display: block;
+  }
+
+  .probability-reference thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .probability-reference tbody tr {
+    border-top: 1px solid var(--rule);
+    padding-block: 0.3em;
+  }
+
+  .probability-reference tbody th,
+  .probability-reference td {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    column-gap: 0.4em;
+    padding: 0;
+    border: 0;
+  }
+
+  .reference-label {
+    display: inline;
+    color: var(--muted-ink);
+    font-size: 0.85em;
+  }
+
+  .reference-value {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+}
+
 .paper-prompt {
   margin-bottom: 0.8rem;
   color: var(--muted-ink);
@@ -816,6 +893,18 @@ math-field.math-answer-field::part(placeholder) {
 
 .worked-solution li + li {
   margin-top: 0.8rem;
+}
+
+.scrollable-math {
+  overflow-x: auto;
+}
+
+.scrollable-math math-field.static-math {
+  max-width: none;
+}
+
+.worked-conclusion {
+  line-height: 1.55;
 }
 
 .changelog-page {

@@ -89,6 +89,13 @@ The **Statistics & probability** track starts with counting and introduces singl
 | Sample means & the central limit theorem | Find exact normal laws and approximate distributions of sums and means |
 | One-sample sampling laws | Identify Student’s t and chi-square laws from normal samples |
 | Two-sample sampling laws | Find laws for differences of normal sample means and ratios of normalized sample variances |
+| Hypothesis testing | Translate a claim into a directional or two-sided test and interpret the evidence |
+| Tests for one mean | Use a z test with known population standard deviation or a t test with a sample estimate |
+| Comparing two means | Work with paired differences or independent samples with equal population variances |
+| Tests for proportions | Find an exact binomial tail or compare two proportions using a pooled z test |
+| Tests for variances | Test one variance using chi-square or compare two variances with an ordered F ratio |
+| Errors and power | Evaluate the size of a rejection region, Type II error, and power at a specified alternative |
+| Likelihood-ratio tests | Find a most-powerful binomial cutoff or compute a generalized likelihood ratio |
 
 Follow each problem's answer instructions:
 
@@ -97,6 +104,7 @@ Follow each problem's answer instructions:
 - Enter three-variable system solutions as `(x, y, z)`. Matrix answers use the visible matrix template; the checker compares dimensions and equivalent entries.
 - Enter eigenvalue pairs in ascending order. Any nonzero scalar multiple of a valid eigenvector is accepted.
 - For a distribution, choose its family and enter the labeled parameters. The normal family takes the mean and variance. For F, enter the numerator and denominator degrees of freedom in order. Select **Check answer** to submit the whole law.
+- For an applied hypothesis test, use the supplied table to find the p-value. Reject the null hypothesis when the unrounded p-value is at most the stated significance level. Enter the p-value rounded to four decimal places and select your decision. Theory problems ask for a single quantity.
 - Use interval notation for inequalities, such as `[2, ∞)`. Infinity always takes a parenthesis. The validator also supports equivalent one-sided inequality notation.
 - Keep a factorization in factored form when the question requests it, and cancel common factors when simplifying a rational expression. Equivalence alone does not satisfy these form requirements.
 
@@ -175,7 +183,7 @@ npm run test:e2e
 npm run build
 ```
 
-The unit suite covers answer equivalence, answer-form constraints, calibration, mastery updates, scoring milestones, reward eligibility, duplicate awards, local-storage compatibility and recovery, serialized updates, and rejection of writes from before a reset. Generator tests check reproducibility and acceptance of the generated answer for 1,000 seeds per topic and difficulty, totaling 63,000 combinations across 21 topics. Independent tests check linear algebra and statistics answers over the same seed range.
+The unit suite covers answer equivalence, answer-form constraints, calibration, mastery updates, scoring milestones, reward eligibility, duplicate awards, local-storage compatibility and recovery, serialized updates, and rejection of writes from before a reset. Generator tests check reproducibility and acceptance of the generated answer for 1,000 seeds per topic and difficulty, totaling 84,000 combinations across 28 topics. Independent tests check linear algebra and statistics answers over the same seed range.
 
 Playwright runs desktop Chrome and Pixel 7 browser profiles. Its tests cover retries, hints, worked solutions, progress navigation, topic selection, MathLive input, interval handling, and accepted-answer feedback. Reward tests cover milestone bonuses, duplicate Enter submissions, persistence, resets, rule disclosures, and fixed problems across difficulty thresholds. Multi-tab regressions cover concurrent answers, delayed storage notifications, reset propagation, stale submissions after reset, solution handling, and retrying a failed save. Accessibility checks cover the home, practice, and progress pages; layout checks include large reward counts, widths from 320 to 1280px, 200% text sizing, control sizes, keyboard focus, and reduced motion. The test configuration starts its own Vite server at `http://127.0.0.1:4173`; you do not need to start one separately.
 
