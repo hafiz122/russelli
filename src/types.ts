@@ -1,4 +1,8 @@
+import type { CalculusSkillId } from "./data/calculus";
+import type { Outcome } from "./math/calculusTopic";
+
 export type SkillId =
+  | CalculusSkillId
   | "expressions"
   | "linear"
   | "lines_systems"
@@ -28,12 +32,13 @@ export type SkillId =
   | "errors_power"
   | "likelihood_ratio";
 
-export type TrackId = "algebra" | "linear_algebra" | "statistics_probability";
+export type TrackId = "algebra" | "linear_algebra" | "statistics_probability" | "calculus";
 export type DistributionFamily = "normal" | "t" | "chi_square" | "f";
 
 export type Difficulty = "easy" | "medium" | "hard";
 
 export type AnswerKind =
+  | "choice"
   | "number"
   | "expression"
   | "equation"
@@ -46,6 +51,7 @@ export type AnswerKind =
   | "hypothesis_test";
 
 export interface AnswerSpec {
+  choices?: { value: string; label: string }[];
   latex: string;
   kind: AnswerKind;
   valueSymbol?: string;
@@ -65,6 +71,7 @@ export interface ReferenceTable {
 }
 
 export interface Question {
+  outcome?: Outcome;
   id: string;
   seed: number;
   generatorVersion: 1 | 2;
@@ -103,6 +110,9 @@ export interface ValidationResult {
 }
 
 export interface Attempt {
+  outcome?: Outcome;
+  choiceLabel?: string;
+  hintUsed?: boolean;
   questionId: string;
   skipped?: boolean;
   presentationId?: string;
@@ -140,6 +150,8 @@ export interface LocalProgressV1 {
   preferredSkill: SkillId | null;
   preferredLinearSkill: SkillId | null;
   preferredStatisticsSkill: SkillId | null;
+  preferredCalculusSkill: SkillId | null;
+  independentCalculusTopics: Record<Outcome, CalculusSkillId[]>;
   totalPoints: number;
   currentStreak: number;
   bestStreak: number;

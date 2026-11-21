@@ -1,0 +1,74 @@
+.calculus-outcomes article {
+  border-bottom: 1px solid var(--rule);
+  padding-block: 1rem;
+}
+
+.calculus-outcomes h3,
+.calculus-outcomes article p {
+  margin: 0;
+}
+
+.calculus-outcomes > p {
+  margin-top: 1rem;
+  color: var(--muted-ink);
+}
+
+.calculus-outcomes a,
+.calculus-outcomes summary,
+.calculus-chapter summary {
+  min-height: 44px;
+  align-content: center;
+  text-underline-offset: 0.2em;
+}
+
+.calculus-outcomes a {
+  display: inline-block;
+}
+
+.calculus-chapter {
+  border-top: 1px solid var(--rule);
+}
+
+.calculus-chapter summary {
+  padding-block: 0.65rem;
+  font-weight: 600;
+}
+
+.calculus-choices {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.calculus-choices label {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 44px;
+  padding: 0.55rem 0.3rem;
+  cursor: pointer;
+}
+
+.calculus-choices input {
+  flex: none;
+  width: 1.2rem;
+  height: 1.2rem;
+  accent-color: var(--lilac-deep);
+}
+
+.calculus-choices label:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.math-scroll-note {
+  display: none;
+  color: var(--muted-ink);
+  font-size: 0.85rem;
+}
+
+.scrollable-math[tabindex="0"] + .math-scroll-note,
+.worked-solution:has(.scrollable-math[tabindex="0"]) .math-scroll-note {
+  display: block;
+}

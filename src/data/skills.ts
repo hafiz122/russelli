@@ -1,4 +1,5 @@
 import type { SkillDefinition, SkillId, TrackId } from "../types";
+import { calculusIds, calculusTopics, chapters } from "./calculus";
 
 export const skills: SkillDefinition[] = [
   {
@@ -224,7 +225,14 @@ export const skills: SkillDefinition[] = [
     description: "Find a most-powerful binomial cutoff or compare the null likelihood with the largest attainable likelihood.",
     prerequisites: ["errors_power"],
     track: "statistics_probability"
-  }
+  },
+  ...calculusIds.map((id): SkillDefinition => {
+    const { title, chapter } = calculusTopics[id];
+    return {
+      id, title, shortTitle: title, track: "calculus", prerequisites: [],
+      description: `Chapter ${chapter} · ${chapters[chapter - 1].title}`
+    };
+  })
 ];
 
 export const skillIds = skills.map((skill) => skill.id);
@@ -232,7 +240,7 @@ export const algebraSkillIds = skills.filter((skill) => skill.track === "algebra
 export const linearAlgebraSkillIds = skills.filter((skill) => skill.track === "linear_algebra").map((skill) => skill.id);
 export const statisticsSkillIds = skills.filter((skill) => skill.track === "statistics_probability").map((skill) => skill.id);
 
-export const trackIds = ["algebra", "linear_algebra", "statistics_probability"] as const;
+export const trackIds = ["algebra", "linear_algebra", "statistics_probability", "calculus"] as const;
 export const tracks = {
   algebra: {
     title: "Algebra", path: "/practice/", skillIds: algebraSkillIds,
@@ -245,10 +253,14 @@ export const tracks = {
   statistics_probability: {
     title: "Statistics & probability", path: "/statistics-probability/", skillIds: statisticsSkillIds,
     preference: "preferredStatisticsSkill", guidedLabel: "Guided queue"
+  },
+  calculus: {
+    title: "Calculus", path: "/calculus/", skillIds: skills.filter(skill => skill.track === "calculus").map(skill => skill.id),
+    preference: "preferredCalculusSkill", guidedLabel: "Follow the five chapters"
   }
 } as const satisfies Record<TrackId, {
   title: string; path: string; skillIds: SkillId[];
-  preference: "preferredSkill" | "preferredLinearSkill" | "preferredStatisticsSkill"; guidedLabel: string;
+  preference: "preferredSkill" | "preferredLinearSkill" | "preferredStatisticsSkill" | "preferredCalculusSkill"; guidedLabel: string;
 }>;
 
 export function getSkill(id: SkillId): SkillDefinition {

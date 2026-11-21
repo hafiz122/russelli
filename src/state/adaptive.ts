@@ -1,4 +1,5 @@
 import { algebraSkillIds, skills, statisticsSkillIds, tracks } from "../data/skills";
+import { isCalculusTopic, topicsForFocus, type CalculusFocus } from "../data/calculus";
 import type { Attempt, Difficulty, LocalProgressV1, SkillId, TrackId } from "../types";
 import { applyRewardEvent } from "./rewards";
 
@@ -14,19 +15,27 @@ function readiness(progress: LocalProgressV1, skillId: SkillId): number {
   return Math.min(...skill.prerequisites.map((id) => progress.mastery[id]));
 }
 
-export function chooseSkill(progress: LocalProgressV1, track: TrackId = "algebra"): SkillId {
+export function chooseSkill(progress: LocalProgressV1, track: TrackId = "algebra", focus?: CalculusFocus): SkillId {
   if (track === "algebra" && !progress.calibrationCompleted) {
     return algebraSkillIds[progress.calibrationIndex] ?? algebraSkillIds[0];
   }
-  const { skillIds: candidates, preference } = tracks[track];
+  const { skillIds, preference } = tracks[track];
+  const focused = track === "calculus" && focus && (focus.chapter || focus.topic || focus.clo);
+  let candidates: SkillId[] = focused ? topicsForFocus(focus) : skillIds;
   const preferred = progress[preference];
-  if (preferred) return preferred;
-  if (track !== "algebra") {
+  if (preferred && !(track === "calculus" && focus)) return preferred;
+  if (focused && focus.clo) {
+    const solved = progress.independentCalculusTopics[focus.clo];
+    const outstanding = candidates.filter(id => isCalculusTopic(id) && !solved.includes(id));
+    if (outstanding.length) candidates = outstanding;
+  }
+  if (track !== "algebra" && !focus?.clo) {
     const next = candidates.find((id) => progress.mastery[id] < 0.45);
     if (next) return next;
   }
 
-  const history = track === "statistics_probability" && progress.recentPresentations.some(item => candidates.includes(item.skillId))
+  const useDisplayHistory = track === "statistics_probability" || track === "calculus";
+  const history = useDisplayHistory && progress.recentPresentations.some(item => candidates.includes(item.skillId))
     ? progress.recentPresentations : progress.recentAttempts;
   const newestFirst = [...history].reverse();
   const ranked = candidates.map(skillId => {
@@ -37,7 +46,7 @@ export function chooseSkill(progress: LocalProgressV1, track: TrackId = "algebra
     return { skillId, priority, age };
   });
   return ranked.sort((a, b) => b.priority - a.priority ||
-    (track === "statistics_probability" ? b.age - a.age : 0))[0].skillId;
+    (useDisplayHistory ? b.age - a.age : 0))[0].skillId;
 }
 
 export function nextSeed(progress: LocalProgressV1, now = Date.now()): number {
@@ -47,14 +56,14 @@ export function nextSeed(progress: LocalProgressV1, now = Date.now()): number {
 }
 
 export function readinessAfterAnswer(score: number, attempt: Attempt): number {
-  if (attempt.correct && attempt.solutionRevealed && statisticsSkillIds.includes(attempt.skillId)) return score;
-  const delta = attempt.correct ? (attempt.attemptCount === 1 ? 0.08 : 0.04) : -0.07;
+  if (attempt.correct && attempt.solutionRevealed && (statisticsSkillIds.includes(attempt.skillId) || isCalculusTopic(attempt.skillId))) return score;
+  const delta = attempt.correct ? (attempt.attemptCount === 1 && !attempt.hintUsed ? 0.08 : 0.04) : -0.07;
   return Math.max(0, Math.min(1, score + delta));
 }
 
 export function recordAttempt(progress: LocalProgressV1, attempt: Attempt): LocalProgressV1 {
   const identity = { questionId: attempt.questionId, presentationId: attempt.presentationId };
-  if (attempt.skipped && statisticsSkillIds.includes(attempt.skillId)) {
+  if (attempt.skipped && (statisticsSkillIds.includes(attempt.skillId) || isCalculusTopic(attempt.skillId))) {
     return applyRewardEvent({
       ...progress, recentSeeds: [...progress.recentSeeds, attempt.seed].slice(-40)
     }, { type: "skip", ...identity });
@@ -74,6 +83,12 @@ export function recordAttempt(progress: LocalProgressV1, attempt: Attempt): Loca
     recentAttempts: [...progress.recentAttempts, attempt].slice(-80),
     recentSeeds: [...progress.recentSeeds, attempt.seed].slice(-40)
   };
+  const { outcome, skillId } = attempt;
+  if (outcome && isCalculusTopic(skillId) && attempt.correct && attempt.attemptCount === 1 && !attempt.hintUsed &&
+      !attempt.solutionRevealed && !progress.independentCalculusTopics[outcome].includes(skillId)) {
+    updated.independentCalculusTopics = { ...progress.independentCalculusTopics,
+      [outcome]: [...progress.independentCalculusTopics[outcome], skillId] };
+  }
   if (attempt.skipped) return applyRewardEvent(updated, { type: "skip", ...identity });
   return applyRewardEvent(updated, {
     type: "answer",

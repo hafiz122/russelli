@@ -1,6 +1,6 @@
 # russelli.
 
-Paper-first practice in algebra, linear algebra, statistics, and probability. The site presents one problem at a time. Work through it in a notebook, enter the final mathematical answer, and check it in the browser.
+Paper-first practice in algebra, linear algebra, statistics, probability, and calculus. The site presents one problem at a time. Work through it in a notebook, enter the final mathematical answer, and check it in the browser.
 
 Live site: [hafiz122.github.io/russelli](https://hafiz122.github.io/russelli/)
 
@@ -45,6 +45,12 @@ This record shows one accepted answer submitted during the screenshot session.
 6. Open **Progress** to review topic readiness and recent answer checks. **Reset local progress** opens a confirmation dialog before clearing the record.
 
 The algebra adaptive queue considers mastery, how recently a topic appeared, and prerequisite readiness. The guided queues start with vectors in linear algebra and counting in statistics. They advance as each topic’s readiness reaches 0.45, then adapt within the chosen subject. When statistics review priorities tie, the queue returns to the topic seen least recently. Difficulty moves between easy, medium, and hard as mastery changes. Within a topic, consecutive questions in one tab use different problem forms. The app also compares new questions with recently displayed problems to reduce repeats. Correct answers increase mastery, with a smaller gain after retries or hints. Statistics practice awards readiness credit only when the learner answers before revealing the worked solution. Incorrect checks reduce mastery. Skips also reduce mastery in algebra and linear algebra. In statistics, skipping a blank or drafted answer leaves readiness unchanged.
+
+### Calculus practice
+
+Calculus covers 34 topics across five chapters. Start with parametric curves, follow a chapter, choose an individual topic, or select a course learning outcome. Each question identifies the outcome it assesses. CLO1 covers concepts, CLO2 covers the evaluation of multiple integrals, and CLO3 covers solving problems and reporting results accurately. The syllabus lists CLO4 for Chapters 2, 3, and 5. Its description is unavailable.
+
+Progress counts each topic once per outcome when you answer correctly on your first try without a hint or worked solution. You can return to a remaining topic directly from the outcome list. This record persists in your browser beyond the recent checks and clears when you reset local progress. Skips leave calculus readiness unchanged. A correct answer after viewing the solution earns no readiness credit.
 
 ### Points and streaks
 
@@ -163,12 +169,13 @@ npm run preview
 | `/practice/` | Calibration, adaptive practice, and answer checking |
 | `/linear-algebra/` | Guided linear algebra practice and focused topics |
 | `/statistics-probability/` | Guided statistics and probability practice and focused topics |
+| `/calculus/` | Guided practice by chapter, topic, or course learning outcome |
 | `/progress/` | Local readiness scores, recent checks, and reset controls |
 | `/privacy/` | How local progress and site visits are handled |
 | `/terms/` | Terms for study use and automated checking |
 | `/changelog/` | Dated posts about features and fixes, newest first |
 
-Topic links use the skill ID as a query parameter, for example `/practice/?topic=functions` or `/linear-algebra/?topic=matrices`. The IDs are defined in [src/data/skills.ts](src/data/skills.ts).
+Topic links use the skill ID as a query parameter, for example `/practice/?topic=functions` or `/linear-algebra/?topic=matrices`. Topic IDs are registered in [src/data/skills.ts](src/data/skills.ts). Calculus links also accept `?chapter=1` through `?chapter=5`, `?clo=CLO1` through `?clo=CLO3`, or a topic paired with an assessed CLO.
 
 ### Posting updates
 
@@ -183,7 +190,7 @@ npm run test:e2e
 npm run build
 ```
 
-The unit suite covers answer equivalence, answer-form constraints, calibration, mastery updates, scoring milestones, reward eligibility, duplicate awards, local-storage compatibility and recovery, serialized updates, and rejection of writes from before a reset. Generator tests check reproducibility and acceptance of the generated answer for 1,000 seeds per topic and difficulty, totaling 84,000 combinations across 28 topics. Independent tests check linear algebra and statistics answers over the same seed range.
+The unit suite covers answer equivalence, answer-form constraints, calibration, mastery updates, scoring milestones, reward eligibility, duplicate awards, local-storage compatibility and recovery, serialized updates, and rejection of writes from before a reset. Generator tests check reproducibility and acceptance of the generated answer for 1,000 seeds per topic and difficulty, totaling 186,000 combinations across 62 topics, including 102,000 calculus cases. Independent tests check calculus, linear algebra, and statistics answers over the same seed range.
 
 Playwright runs desktop Chrome and Pixel 7 browser profiles. Its tests cover retries, hints, worked solutions, progress navigation, topic selection, MathLive input, interval handling, and accepted-answer feedback. Reward tests cover milestone bonuses, duplicate Enter submissions, persistence, resets, rule disclosures, and fixed problems across difficulty thresholds. Multi-tab regressions cover concurrent answers, delayed storage notifications, reset propagation, stale submissions after reset, solution handling, and retrying a failed save. Accessibility checks cover the home, practice, and progress pages; layout checks include large reward counts, widths from 320 to 1280px, 200% text sizing, control sizes, keyboard focus, and reduced motion. The test configuration starts its own Vite server at `http://127.0.0.1:4173`; you do not need to start one separately.
 

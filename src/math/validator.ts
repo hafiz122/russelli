@@ -100,6 +100,38 @@ function equalExactExpressions(actual: string, expected: string, valueSymbol?: s
   return left.isIdenticallyEqual(right) === true;
 }
 
+function nonzeroEverywhere(expression: BoxedExpression): boolean {
+  const value = expression.canonical;
+  return value.isFinite === true && (value.isPositive === true || value.isNegative === true);
+}
+
+function hasDefinedDenominators(expression: BoxedExpression): boolean {
+  if (!isFunction(expression)) return true;
+  const [base, exponent] = expression.ops;
+  if (expression.operator === "Divide" && !nonzeroEverywhere(exponent)) return false;
+  if (expression.operator === "Power" && exponent.canonical.isNegative && !nonzeroEverywhere(base)) return false;
+  return expression.ops.every(hasDefinedDenominators);
+}
+
+function equalCalculusValues(actual: string, expected: string, equation = false): boolean {
+  if (actual === expected) return true;
+  ce.pushScope();
+  try {
+    for (const variable of ["x", "y", "z", "t"]) ce.declare(variable, "real");
+    // Inspect the entered expression before simplification can cancel a denominator.
+    const raw = parse(exactDecimals(actual), false, "rational");
+    const right = parse(exactDecimals(expected), true, "rational");
+    if (!raw || !right || !hasDefinedDenominators(raw)) return false;
+    const left = raw.canonical;
+    if (equation) return equalEquations(left, right, true);
+    const actualValue = left.evaluate();
+    const expectedValue = right.evaluate();
+    return actualValue.isSame(expectedValue) || ce.box(["Subtract", actualValue, expectedValue]).simplify().isSame(ce.number(0));
+  } finally {
+    ce.popScope();
+  }
+}
+
 function equalTransformation(actual: string, answer: AnswerSpec): boolean {
   if (actual === answer.latex) return true;
   const matches = (candidates: string[], simplify: (value: BoxedExpression) => BoxedExpression) => {
@@ -132,12 +164,26 @@ function equalTransformation(actual: string, answer: AnswerSpec): boolean {
   }
 }
 
+function decimalFraction(whole: string, decimals: string): string {
+  return `\\frac{${whole}${decimals}}{10^{${decimals.length}}}`;
+}
+
+function exactDecimals(latex: string): string {
+  // Keep scientific and repeating decimal literals together while converting all digits exactly.
+  return latex.replace(/(\d*)\.(\d+)(?:\\overline\{(\d+)\}|(?:\\left)?\((\d+)(?:\\right)?\))?(?:[eE]([+-]?\d+))?/g,
+    (_, whole: string, decimals: string, overline?: string, parentheses?: string, exponent?: string) => {
+      const repeat = overline ?? parentheses;
+      const prefix = whole + decimals;
+      const value = repeat
+        ? `\\frac{${prefix}${repeat}-${prefix}}{10^{${decimals.length}}(10^{${repeat.length}}-1)}`
+        : decimalFraction(whole, decimals);
+      return exponent ? `\\left(${value}\\cdot10^{${exponent}}\\right)` : value;
+    });
+}
+
 function parseExactValue(latex: string, valueSymbol?: string): BoxedExpression | undefined {
-  // The engine constructs decimal denominators with a machine power of ten.
-  // From 10^23 onward, that can change the fraction before it is compared.
-  const value = latex.replace(/(\d*)\.(\d{23,})/g, (_, whole: string, decimals: string) =>
-    `\\frac{${whole}${decimals}}{10^{${decimals.length}}}`
-  );
+  // The statistics grader relies on the engine’s decimal parser for short literals.
+  const value = latex.replace(/(\d*)\.(\d{23,})/g, (_, whole: string, decimals: string) => decimalFraction(whole, decimals));
   const expression = parse(value, true, "rational");
   if (valueSymbol && expression && isFunction(expression) && expression.operator === "Equal") {
     if (expression.ops.length !== 2) return undefined;
@@ -167,9 +213,19 @@ function roundsToPValue(probability: BoxedExpression, reference: number): boolea
   return probability.isLess(lower) === false && probability.isLess(upper) === true;
 }
 
-function equalEquations(actual: string, expected: string): boolean {
-  const actualExpression = parse(actual);
-  const expectedExpression = parse(expected);
+function zeroSetBase(value: BoxedExpression): BoxedExpression {
+  if (!isFunction(value)) return value;
+  const [first, second] = value.ops;
+  if (value.operator === "Power" && second.isInteger && second.isPositive) return zeroSetBase(first);
+  if (value.operator === "Divide" && nonzeroEverywhere(second)) return zeroSetBase(first);
+  if (value.operator === "Multiply") {
+    const factors = value.ops.filter(factor => !nonzeroEverywhere(factor));
+    if (factors.length === 1) return zeroSetBase(factors[0]);
+  }
+  return value;
+}
+
+function equalEquations(actualExpression: BoxedExpression | null, expectedExpression: BoxedExpression | null, requireEquation = false): boolean {
   if (
     !actualExpression ||
     !expectedExpression ||
@@ -180,24 +236,29 @@ function equalEquations(actual: string, expected: string): boolean {
   }
 
   if (actualExpression.operator !== "Equal" || !isFunction(actualExpression)) {
+    if (requireEquation) return false;
     const expectedRight = expectedExpression.ops[1];
     return actualExpression.isIdenticallyEqual(expectedRight) === true || actualExpression.is(expectedRight);
   }
+  if (requireEquation && actualExpression.ops.length !== 2) return false;
 
   const actualLeft = actualExpression.ops[0];
   const actualRight = actualExpression.ops[1];
   const expectedLeft = expectedExpression.ops[0];
   const expectedRight = expectedExpression.ops[1];
 
-  if (actualLeft.isSame(expectedLeft)) {
+  if (!requireEquation && actualLeft.isSame(expectedLeft)) {
     return actualRight.isIdenticallyEqual(expectedRight) === true || actualRight.is(expectedRight);
   }
-  if (actualRight.isSame(expectedLeft)) {
+  if (!requireEquation && actualRight.isSame(expectedLeft)) {
     return actualLeft.isIdenticallyEqual(expectedRight) === true || actualLeft.is(expectedRight);
   }
+
   if (actualExpression.isSame(expectedExpression)) return true;
 
-  const actualDifference = ce.box(["Subtract", actualLeft, actualRight]).simplify();
+  const actualDifference = requireEquation && (actualLeft.isSame(ce.number(0)) || actualRight.isSame(ce.number(0)))
+    ? zeroSetBase(actualLeft.isSame(ce.number(0)) ? actualRight : actualLeft)
+    : ce.box(["Subtract", actualLeft, actualRight]).simplify();
   const expectedDifference = ce.box(["Subtract", expectedLeft, expectedRight]).simplify();
   const variables = [...new Set([...actualDifference.freeVariables, ...expectedDifference.freeVariables])];
   for (let sample = 0; sample <= variables.length; sample += 1) {
@@ -268,21 +329,22 @@ function makeInterval(
   leftDelimiter: ParsedInterval["leftDelimiter"],
   leftEndpoint: string,
   rightEndpoint: string,
-  rightDelimiter: ParsedInterval["rightDelimiter"]
+  rightDelimiter: ParsedInterval["rightDelimiter"],
+  preserveEndpoints = false
 ): ParsedInterval | null {
   const left = leftEndpoint === "-∞" ? "-∞" : parse(leftEndpoint)?.simplify().latex;
   const right = rightEndpoint === "∞" ? "∞" : parse(rightEndpoint)?.simplify().latex;
   if (!left || !right) return null;
   return {
     leftDelimiter,
-    leftEndpoint: left,
-    rightEndpoint: right,
+    leftEndpoint: preserveEndpoints ? leftEndpoint : left,
+    rightEndpoint: preserveEndpoints ? rightEndpoint : right,
     rightDelimiter,
     normalized: `${leftDelimiter}${left},${right}${rightDelimiter}`
   };
 }
 
-function parseInterval(value: string): ParsedInterval | null {
+function parseInterval(value: string, preserveEndpoints = false): ParsedInterval | null {
   const cleaned = value
     .replace(/\\left|\\right/g, "")
     .replace(/\\lbrack/g, "[")
@@ -299,7 +361,8 @@ function parseInterval(value: string): ParsedInterval | null {
       match[1] as ParsedInterval["leftDelimiter"],
       match[2],
       match[3],
-      match[4] as ParsedInterval["rightDelimiter"]
+      match[4] as ParsedInterval["rightDelimiter"],
+      preserveEndpoints
     );
   }
 
@@ -319,24 +382,25 @@ function parseInterval(value: string): ParsedInterval | null {
     : makeInterval("(", "-∞", boundary, inclusive ? "]" : ")");
 }
 
-function equalIntervalEndpoints(actual: string, expected: string): boolean {
+function equalIntervalEndpoints(actual: string, expected: string, compare: typeof equalExpressions): boolean {
   if (actual === "-∞" || actual === "∞" || expected === "-∞" || expected === "∞") {
     return actual === expected;
   }
-  return equalExpressions(actual, expected);
+  return compare(actual, expected);
 }
 
-function equalIntervals(actual: ParsedInterval, expected: ParsedInterval): boolean {
+function equalIntervals(actual: ParsedInterval, expected: ParsedInterval, compare: typeof equalExpressions): boolean {
   return (
     actual.leftDelimiter === expected.leftDelimiter &&
     actual.rightDelimiter === expected.rightDelimiter &&
-    equalIntervalEndpoints(actual.leftEndpoint, expected.leftEndpoint) &&
-    equalIntervalEndpoints(actual.rightEndpoint, expected.rightEndpoint)
+    equalIntervalEndpoints(actual.leftEndpoint, expected.leftEndpoint, compare) &&
+    equalIntervalEndpoints(actual.rightEndpoint, expected.rightEndpoint, compare)
   );
 }
 
 export function isParseableAnswer(question: Question, latex: string): boolean {
   if (!latex.trim()) return false;
+  if (question.answer.kind === "choice") return question.answer.choices?.some(choice => choice.value === latex) ?? false;
   if (question.answer.kind === "hypothesis_test") return parseTestResult(latex) !== null;
   if (question.answer.kind === "distribution") {
     const law = readDistribution(latex);
@@ -356,6 +420,12 @@ export function isParseableAnswer(question: Question, latex: string): boolean {
 }
 
 export function validateAnswer(question: Question, latex: string): ValidationResult {
+  if (question.answer.kind === "choice") {
+    const parseable = isParseableAnswer(question, latex);
+    const correct = parseable && question.answer.latex === latex;
+    return { parseable, correct, retryEligible: !correct, normalizedAnswer: parseable ? latex : "",
+      feedback: correct ? "Your conclusion checks out." : parseable ? "Review the conditions on paper and try again." : "Choose your final answer." };
+  }
   if (question.answer.kind === "hypothesis_test") {
     const actual = parseTestResult(latex);
     if (!actual) {
@@ -378,8 +448,15 @@ export function validateAnswer(question: Question, latex: string): ValidationRes
     };
   }
 
+  if (question.outcome && latex !== question.answer.latex &&
+      parse(latex, false)?.has(["Integrate", "D", "Derivative", "Limit", "Sum", "Product"])) {
+    return { parseable: true, correct: false, normalizedAnswer: latex, retryEligible: true,
+      feedback: "Finish the calculus on paper and enter the evaluated result." };
+  }
+
   let correct = false;
   let normalizedAnswer = latex;
+  const compareValues = question.outcome ? equalCalculusValues : equalExpressions;
 
   if (question.answer.kind === "distribution") {
     const actual = readDistribution(latex)!;
@@ -393,7 +470,7 @@ export function validateAnswer(question: Question, latex: string): ValidationRes
     const expected = splitTuple(question.answer.latex, size)!;
     correct = question.answer.kind === "vector_direction"
       ? equalVectorDirections(actual, expected)
-      : actual.every((component, index) => equalExpressions(component, expected[index]));
+      : actual.every((component, index) => compareValues(component, expected[index]));
     normalizedAnswer = `(${actual.map((component) => parse(component)!.simplify().latex).join(",")})`;
   } else if (question.answer.kind === "matrix") {
     const actual = parseMatrix(latex)!;
@@ -410,8 +487,8 @@ export function validateAnswer(question: Question, latex: string): ValidationRes
     correct = equalMatrices(actual, expected);
     normalizedAnswer = latex;
   } else if (question.answer.kind === "interval") {
-    const actualInterval = parseInterval(latex)!;
-    const expectedInterval = parseInterval(question.answer.latex)!;
+    const actualInterval = parseInterval(question.outcome ? exactDecimals(latex) : latex, Boolean(question.outcome))!;
+    const expectedInterval = parseInterval(question.answer.latex, Boolean(question.outcome))!;
     normalizedAnswer = actualInterval.normalized;
     const closesInfinity =
       (actualInterval.leftEndpoint === "-∞" && actualInterval.leftDelimiter === "[") ||
@@ -425,9 +502,11 @@ export function validateAnswer(question: Question, latex: string): ValidationRes
         retryEligible: true
       };
     }
-    correct = equalIntervals(actualInterval, expectedInterval);
+    correct = equalIntervals(actualInterval, expectedInterval, compareValues);
   } else if (question.answer.kind === "equation") {
-    correct = equalEquations(latex, question.answer.latex);
+    correct = question.outcome
+      ? equalCalculusValues(latex, question.answer.latex, true)
+      : equalEquations(parse(latex), parse(question.answer.latex));
     normalizedAnswer = parse(latex)!.latex;
   } else if (question.answer.kind === "expression" && question.skillId === "transformations") {
     correct = equalTransformation(latex, question.answer);
@@ -435,7 +514,7 @@ export function validateAnswer(question: Question, latex: string): ValidationRes
   } else {
     correct = question.answer.kind === "number" && statisticsSkillIds.includes(question.skillId)
       ? equalExactExpressions(latex, question.answer.latex, question.answer.valueSymbol)
-      : equalExpressions(latex, question.answer.latex);
+      : compareValues(latex, question.answer.latex);
     normalizedAnswer = parse(latex)!.simplify().latex;
   }
 

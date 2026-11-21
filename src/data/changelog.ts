@@ -8,6 +8,16 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    id: "calculus-practice",
+    date: "2026-11-21",
+    title: "Calculus practice by chapter and outcome",
+    summary: "Work through 34 topics from parametric curves to multiple integrals.",
+    changes: [
+      "Choose a chapter, a topic, or one of the three defined course learning outcomes.",
+      "Progress shows which topics you have solved independently for each outcome and links to the topics still to practice."
+    ]
+  },
+  {
     id: "hypothesis-test-notation",
     date: "2026-11-21",
     title: "Corrected hypothesis-test subscripts",

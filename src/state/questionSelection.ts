@@ -11,6 +11,7 @@ export interface QuestionSelectionOptions {
   difficulty: Difficulty;
   recentPresentations: readonly RecentPresentation[];
   previousFormId: string | null;
+  requiredForm?: 0 | 1;
   presentationId: string;
   randomUint32?: () => number;
 }
@@ -50,6 +51,7 @@ export function selectQuestion({
   difficulty,
   recentPresentations,
   previousFormId,
+  requiredForm,
   presentationId,
   randomUint32 = secureRandomUint32
 }: QuestionSelectionOptions): QuestionSelection {
@@ -59,9 +61,9 @@ export function selectQuestion({
   const priorForm = forms.includes(previousFormId ?? "")
     ? previousFormId
     : forms.includes(lastForTopic?.formId ?? "") ? lastForTopic?.formId : null;
-  const parity: 0 | 1 = priorForm === forms[0]
+  const parity: 0 | 1 = requiredForm ?? (priorForm === forms[0]
     ? 1
-    : priorForm === forms[1] ? 0 : (randomUint32() >>> 0) % 2 as 0 | 1;
+    : priorForm === forms[1] ? 0 : (randomUint32() >>> 0) % 2 as 0 | 1);
 
   const candidates: Question[] = [];
   const usedSeeds = new Set<number>();

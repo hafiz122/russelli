@@ -12,6 +12,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         home: resolve(projectDirectory, "index.html"),
+        calculus: resolve(projectDirectory, "calculus/index.html"),
         practice: resolve(projectDirectory, "practice/index.html"),
         linearAlgebra: resolve(projectDirectory, "linear-algebra/index.html"),
         statisticsProbability: resolve(projectDirectory, "statistics-probability/index.html"),

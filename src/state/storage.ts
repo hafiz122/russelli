@@ -1,6 +1,7 @@
 import { algebraSkillIds, skillIds, statisticsSkillIds, trackIds, tracks } from "../data/skills";
 import type { Attempt, LocalProgressV1, QuestionReward, RecentPresentation, SkillId } from "../types";
 import { readinessAfterAnswer } from "./adaptive";
+import { assessedOutcomes, topicsForFocus } from "../data/calculus";
 
 export const STORAGE_KEY = "russelli.progress.v1";
 const LEGACY_STORAGE_KEY = "nurkh.progress.v1";
@@ -33,6 +34,8 @@ export function createDefaultProgress(): LocalProgressV1 {
     preferredSkill: null,
     preferredLinearSkill: null,
     preferredStatisticsSkill: null,
+    preferredCalculusSkill: null,
+    independentCalculusTopics: { CLO1: [], CLO2: [], CLO3: [] },
     totalPoints: 0,
     currentStreak: 0,
     bestStreak: 0,
@@ -52,6 +55,8 @@ function isAttempt(value: unknown): value is Attempt {
     isSkillId(attempt.skillId) &&
     ["easy", "medium", "hard"].includes(attempt.difficulty ?? "") &&
     typeof attempt.rawLatex === "string" &&
+    (attempt.choiceLabel === undefined || typeof attempt.choiceLabel === "string") &&
+    (attempt.hintUsed === undefined || typeof attempt.hintUsed === "boolean") &&
     typeof attempt.normalizedAnswer === "string" &&
     typeof attempt.correct === "boolean" &&
     (attempt.skipped === undefined || typeof attempt.skipped === "boolean") &&
@@ -129,6 +134,12 @@ export function loadProgress(): { progress: LocalProgressV1; recovered: boolean 
     }
 
     const base = createDefaultProgress();
+    for (const clo of assessedOutcomes) {
+      const evidence = value.independentCalculusTopics?.[clo];
+      if (Array.isArray(evidence)) {
+        base.independentCalculusTopics[clo] = topicsForFocus({ clo }).filter(id => evidence.includes(id));
+      }
+    }
     base.resetId = typeof value.resetId === "string" && value.resetId.length > 0 ? value.resetId : base.resetId;
     for (const id of skillIds) {
       const score = value.mastery[id];

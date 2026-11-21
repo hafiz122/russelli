@@ -1,4 +1,5 @@
 import { generateQuestion } from "../math/generators";
+import { calculusTopics, isCalculusTopic, type CalculusFocus } from "../data/calculus";
 import type { LocalProgressV1, Question, SkillId, TrackId } from "../types";
 import { chooseSkill, difficultyFor } from "./adaptive";
 import { selectQuestion } from "./questionSelection";
@@ -6,6 +7,7 @@ import { selectQuestion } from "./questionSelection";
 export interface ReservationOptions {
   presentationId: string;
   topicOverride: SkillId | null;
+  calculusFocus?: CalculusFocus;
   track?: TrackId;
   lastForms: Partial<Record<SkillId, string>>;
   randomUint32?: () => number;
@@ -34,10 +36,15 @@ export function reservePresentation(progress: LocalProgressV1, options: Reservat
     ? progress.recentPresentations.filter((item) => item.presentationId !== options.presentationId)
     : progress.recentPresentations;
   const track = options.track ?? "algebra";
-  const skillId = options.topicOverride ?? chooseSkill(progress, track);
+  const focus = track === "calculus" ? options.calculusFocus : undefined;
+  const skillId = focus ? chooseSkill(progress, track, focus) : options.topicOverride ?? chooseSkill(progress, track);
+  const clo = focus?.clo;
+  const aligned = isCalculusTopic(skillId) ? calculusTopics[skillId].outcomes : null;
+  const requiredForm = clo && aligned && aligned[0] !== aligned[1] ? (aligned[0] === clo ? 0 : 1) : undefined;
   const difficulty = difficultyFor(progress.mastery[skillId]);
   const { question, presentation } = selectQuestion({
     skillId,
+    requiredForm,
     difficulty,
     recentPresentations: currentHistory,
     previousFormId: options.lastForms[skillId] ?? null,
