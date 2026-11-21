@@ -14,9 +14,7 @@ export const statisticsFoundationFormIds = {
 type Topic = keyof typeof statisticsFoundationFormIds;
 type Problem = Pick<Question, "instruction" | "promptLatex" | "promptDescription" | "hints" | "workedSolution"> & {
   givens: (number | string)[];
-  answer: string;
-  kind?: AnswerSpec["kind"];
-  equivalentLatex?: string[];
+  answer: string | AnswerSpec;
 };
 
 function generator(topic: Topic, make: (rng: SeededRandom, difficulty: Difficulty, even: boolean) => Problem): QuestionGenerator {
@@ -26,13 +24,14 @@ function generator(topic: Topic, make: (rng: SeededRandom, difficulty: Difficult
     generate(seed, difficulty) {
       const even = seed % 2 === 0;
       const formId = statisticsFoundationFormIds[topic][even ? 0 : 1];
-      const { givens, answer, kind = "number", equivalentLatex, workedSolution, ...prompt } = make(new SeededRandom(seed), difficulty, even);
+      const { givens, answer, workedSolution, ...prompt } = make(new SeededRandom(seed), difficulty, even);
+      const spec: AnswerSpec = typeof answer === "string" ? { kind: "number", latex: answer } : answer;
       return {
         ...prompt, seed, difficulty, formId, skillId: topic, generatorVersion: 1,
         id: `${topic}:${difficulty}:${seed}`,
         problemKey: `${topic}:${formId}:${givens.join(",")}`,
-        answer: { kind, latex: answer, ...(equivalentLatex && { equivalentLatex }) },
-        workedSolution: [...workedSolution, `\\boxed{${answer}}`]
+        answer: spec,
+        workedSolution: [...workedSolution, `\\boxed{${spec.latex}}`]
       };
     }
   };
@@ -190,7 +189,7 @@ const continuousVariables = generator("continuous_variables", (rng, difficulty, 
     instruction: normalize ? "This density is zero outside the stated interval. Find its normalizing constant c." : "This density is zero outside the stated interval. Find the indicated probability.",
     promptLatex: `\\begin{gathered}f(x)=${normalize ? "c" : coefficient}${base},\\quad ${lo}<x<${hi}${normalize ? "" : `\\\\${event}`}\\end{gathered}`,
     givens: normalize ? [degree, offset, lo, hi] : [degree, offset, lo, hi, a, b],
-    answer: normalize ? coefficient : fraction(integralNumerator(a, b), area),
+    answer: normalize ? { kind: "number", latex: coefficient, valueSymbol: "c" } : fraction(integralNumerator(a, b), area),
     hints: [normalize ? "The total area under the density equals one." : "Integrate the density between the two event bounds.", "Integrate each power and evaluate the antiderivative at both endpoints."],
     workedSolution: normalize ? [`1=c\\int_{${lo}}^{${hi}}${base}\\,dx`, `1=c\\left[${antiderivative}\\right]_{${lo}}^{${hi}}=c\\cdot${fraction(area, m)}`, `c=\\frac{${m}}{${area}}`] :
       [`${event}=${coefficient}\\int_{${a}}^{${b}}${base}\\,dx`, `=${coefficient}\\left[${antiderivative}\\right]_{${a}}^{${b}}=${coefficient}\\cdot${fraction(integralNumerator(a, b), m)}`]
@@ -238,8 +237,9 @@ const transformations = generator("transformations", (rng, difficulty, cdf) => {
   return {
     instruction: `X has the density shown on (0, 1) and zero density elsewhere. For the stated interior range of y, enter the ${cdf ? "CDF" : "density"} of Y as an expression in y.`,
     promptLatex: `\\begin{gathered}f_X(x)=${fx},\\quad Y=${transform}\\\\${lower}<y<${upper}\\end{gathered}`,
-    givens: [shape, hard ? -scale : scale, degree, shift], answer: cdf ? cdfAnswer : densityAnswer, kind: "expression",
-    ...(equivalentLatex.length > 0 && { equivalentLatex }),
+    givens: [shape, hard ? -scale : scale, degree, shift],
+    answer: { kind: "expression", latex: cdf ? cdfAnswer : densityAnswer, interiorSupport: { lower, upper },
+      ...(equivalentLatex.length > 0 && { equivalentLatex }) },
     hints: ["Solve the transformation for x on the support of X.", cdf ? "Translate the event Y ≤ y into an inequality for X, accounting for the direction of the transformation." : "Multiply the original density at the inverse by the absolute derivative of the inverse."],
     workedSolution: steps
   };

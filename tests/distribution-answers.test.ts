@@ -59,6 +59,20 @@ describe("distribution answers", () => {
 });
 
 describe("exact numerical statistics answers", () => {
+  it("accepts the normalizing constant as a value or a solved equation for c", () => {
+    const generator = generators.continuous_variables;
+    const question = generator.generate(2, "easy");
+    expect(question.answer.latex).toBe("\\frac{2}{25}");
+    for (const correct of ["c=\\frac{2}{25}", "0.08=c", "c=\\frac{4}{50}", "0.08"]) {
+      expect(generator.validate(question, correct), correct).toMatchObject({ parseable: true, correct: true });
+    }
+    for (const wrong of ["x=0.08", "c=0.08000000000000000000001", "c=3/25", "c=c", "2c=0.08", "c=0.08=1"]) {
+      expect(generator.validate(question, wrong).correct, wrong).toBe(false);
+    }
+    const probability = generator.generate(1, "easy");
+    expect(generator.validate(probability, "c=" + probability.answer.latex).correct).toBe(false);
+  });
+
   it("accepts a terminating decimal and rejects nearby decimals on both sides", () => {
     const generator = generators.conditional_probability;
     const half = generator.generate(30, "easy");

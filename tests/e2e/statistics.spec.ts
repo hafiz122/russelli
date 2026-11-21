@@ -1,7 +1,71 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { generateQuestion } from "../../src/math/generators";
 import { createDefaultProgress } from "../../src/state/storage";
+import type { SkillId } from "../../src/types";
+
+async function openQuestion(page: Page, topic: SkillId, seed: number, mastery: number) {
+  const progress = createDefaultProgress();
+  progress.mastery[topic] = mastery;
+  await page.addInitScript(({ progress, seed }) => {
+    localStorage.setItem("russelli.progress.v1", JSON.stringify(progress));
+    const original = crypto.getRandomValues.bind(crypto);
+    // Select the form, seed the first candidate, then choose that candidate.
+    const draws = [seed % 2, Math.floor((seed - 1) / 2)];
+    Object.defineProperty(crypto, "getRandomValues", {
+      value: (array: Uint32Array<ArrayBuffer>) => {
+        if (!(array instanceof Uint32Array) || array.length !== 1) return original(array);
+        array[0] = draws.shift() ?? 0;
+        return array;
+      }
+    });
+  }, { progress, seed });
+  await page.goto(`/statistics-probability/?topic=${topic}`);
+  await expect(page.locator(".problem-code")).toHaveText(`Problem ${seed.toString(36).toUpperCase()}`);
+}
+
+test("accepts a density normalizing constant entered as an equation", async ({ page }) => {
+  await openQuestion(page, "continuous_variables", 2, 0.35);
+  await expect(page.getByText(/Find its normalizing constant c/)).toBeVisible();
+  const field = page.locator("math-field.math-answer-field");
+  await field.focus();
+  // The area under cx from zero to five is 25c/2.
+  await page.keyboard.type("c=0.08");
+  await page.keyboard.press("Enter");
+  await expect(page.getByText("Answer accepted.", { exact: true })).toBeVisible();
+});
+
+test("accepts a transformed density equivalent on the displayed support", async ({ page }) => {
+  await openQuestion(page, "transformations", 39, 0.9);
+  const field = page.locator("math-field.math-answer-field");
+  await field.focus();
+  // For Y = 8 - 5X² with density 4x³, the density is 2(8-y)/25 on (3, 8).
+  await page.keyboard.type("0.08");
+  await page.keyboard.press("Shift+Backslash");
+  await page.keyboard.type("8-y");
+  await page.keyboard.press("Shift+Backslash");
+  await expect(field).toHaveJSProperty("value", String.raw`0.08\left|8-y\right|`);
+  await page.keyboard.press("Enter");
+  await expect(page.getByText("Answer accepted.", { exact: true })).toBeVisible();
+});
+
+test("accepts the two-sided p-value calculated from the displayed F table", async ({ page }) => {
+  await openQuestion(page, "variance_tests", 3607, 0.9);
+  const statistic = (144 / 15) / 4;
+  const table = page.getByRole("table", { name: /numerator df 24, denominator df 16/ });
+  const row = table.getByRole("row").filter({ has: page.getByRole("rowheader", { name: String(statistic), exact: true }) });
+  const area = await row.getByRole("cell").innerText();
+  const decimals = area.split(".")[1];
+  const scale = 10 ** decimals.length;
+  const twoTails = 2 * (scale - Number(decimals));
+  const p = Math.round(twoTails / (scale / 10_000)) / 10_000;
+  expect(p).toBe(0.0742);
+  await page.getByRole("radio", { name: "Fail to reject H₀" }).check();
+  await page.locator('math-field[aria-label="p-value"]').focus();
+  await page.keyboard.type(p.toFixed(4));
+  await page.keyboard.press("Enter");
+  await expect(page.getByText("Answer accepted.", { exact: true })).toBeVisible();
+});
 
 test("saves a distribution retry, rewards it once, and resumes the chosen topic", async ({ page }) => {
   await page.goto("/");

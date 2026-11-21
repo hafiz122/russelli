@@ -1,5 +1,6 @@
-import { algebraSkillIds, skillIds, trackIds, tracks } from "../data/skills";
+import { algebraSkillIds, skillIds, statisticsSkillIds, trackIds, tracks } from "../data/skills";
 import type { Attempt, LocalProgressV1, QuestionReward, RecentPresentation, SkillId } from "../types";
+import { readinessAfterAnswer } from "./adaptive";
 
 export const STORAGE_KEY = "russelli.progress.v1";
 const LEGACY_STORAGE_KEY = "nurkh.progress.v1";
@@ -12,13 +13,16 @@ export interface ProgressCommit {
 
 export type ProgressUpdate = (current: LocalProgressV1) => LocalProgressV1;
 
+const initialReadiness = 0.35;
+
 function defaultMastery(): Record<SkillId, number> {
-  return Object.fromEntries(skillIds.map((id) => [id, 0.35])) as Record<SkillId, number>;
+  return Object.fromEntries(skillIds.map((id) => [id, initialReadiness])) as Record<SkillId, number>;
 }
 
 export function createDefaultProgress(): LocalProgressV1 {
   return {
     schemaVersion: 1,
+    statisticsReadinessVersion: 2,
     resetId: "initial",
     calibrationCompleted: false,
     calibrationIndex: 0,
@@ -50,9 +54,36 @@ function isAttempt(value: unknown): value is Attempt {
     typeof attempt.rawLatex === "string" &&
     typeof attempt.normalizedAnswer === "string" &&
     typeof attempt.correct === "boolean" &&
+    (attempt.skipped === undefined || typeof attempt.skipped === "boolean") &&
     Number.isInteger(attempt.attemptCount) && (attempt.attemptCount ?? 0) >= 1 &&
     typeof attempt.solutionRevealed === "boolean" &&
     typeof attempt.timestamp === "string" && Number.isFinite(Date.parse(attempt.timestamp));
+}
+
+function restoreAttempts(progress: LocalProgressV1, saved: unknown[], legacyStatisticsReadiness: boolean): void {
+  const attempts = saved.filter(isAttempt).slice(-80);
+  if (!legacyStatisticsReadiness) {
+    progress.recentAttempts = attempts;
+    return;
+  }
+  const skips = new Set(attempts.filter(attempt => !attempt.correct && !attempt.rawLatex.trim()));
+  progress.recentAttempts = attempts.filter(attempt => !skips.has(attempt) || !statisticsSkillIds.includes(attempt.skillId))
+    .map(attempt => skips.has(attempt) ? { ...attempt, skipped: true } : attempt);
+
+  // The old record kept only 80 attempts. Regrade only when the complete
+  // history accounts for the saved score, including clamping at zero or one.
+  if (saved.length >= 80 || saved.length !== attempts.length) return;
+  const affectedTopics = new Set(attempts
+    .filter(attempt => skips.has(attempt) || (attempt.correct && attempt.solutionRevealed))
+    .map(attempt => attempt.skillId).filter(id => statisticsSkillIds.includes(id)));
+  for (const id of affectedTopics) {
+    const topicHistory = attempts.filter(attempt => attempt.skillId === id);
+    const oldScore = topicHistory.reduce((score, attempt) =>
+      readinessAfterAnswer(score, { ...attempt, solutionRevealed: false }), initialReadiness);
+    if (Math.abs(progress.mastery[id] - oldScore) < 1e-12) {
+      progress.mastery[id] = topicHistory.filter(attempt => !skips.has(attempt)).reduce(readinessAfterAnswer, initialReadiness);
+    }
+  }
 }
 
 function isRecentPresentation(value: unknown): value is RecentPresentation {
@@ -108,7 +139,9 @@ export function loadProgress(): { progress: LocalProgressV1; recovered: boolean 
 
     base.calibrationCompleted = Boolean(value.calibrationCompleted);
     base.calibrationIndex = Math.max(0, Math.min(algebraSkillIds.length, Number(value.calibrationIndex) || 0));
-    base.recentAttempts = Array.isArray(value.recentAttempts) ? value.recentAttempts.filter(isAttempt).slice(-80) : [];
+    if (Array.isArray(value.recentAttempts)) {
+      restoreAttempts(base, value.recentAttempts, value.statisticsReadinessVersion !== base.statisticsReadinessVersion);
+    }
     base.recentSeeds = Array.isArray(value.recentSeeds)
       ? value.recentSeeds.filter((seed) => Number.isInteger(seed)).slice(-40)
       : [];

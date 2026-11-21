@@ -35,4 +35,26 @@ describe("grading probability transformations on their stated support", () => {
     expect(generator.validate(cdf, tex`\frac{y^3-6y^2+12y-8}{27}`).correct).toBe(true);
     expect(generator.validate(cdf, tex`\frac{y^3-6y^2+12y}{27}`).correct).toBe(false);
   });
+
+  it("uses the sign on the stated support for CDFs and square roots", () => {
+    const cdf = generator.generate(2, "hard");
+    expect(cdf.promptLatex).toContain("2<y<5");
+    expect(generator.validate(cdf, tex`1-\left|\frac{5-y}{3}\right|^3`).correct).toBe(true);
+    expect(generator.validate(cdf, tex`1+\left|\frac{5-y}{3}\right|^3`).correct).toBe(false);
+    expect(generator.validate(density, tex`\frac{2\sqrt{(8-y)^2}}{25}`).correct).toBe(true);
+  });
+
+  it("accepts a Jacobian using a square root in the denominator", () => {
+    const question = generator.generate(19, "hard");
+    const rawJacobian = tex`4\left(\sqrt{\frac{6-y}{3}}\right)^3\left|-\frac{1}{6\sqrt{\frac{6-y}{3}}}\right|`;
+    expect(generator.validate(question, rawJacobian).correct).toBe(true);
+  });
+
+  it("keeps each question's support local and preserves sign changes inside it", () => {
+    const cdf = generator.generate(2, "hard");
+    const zeroForSmallerY = tex`\left|5-y\right|-(5-y)`;
+    expect(generator.validate(cdf, cdf.answer.latex + "+" + zeroForSmallerY).correct).toBe(true);
+    expect(generator.validate(density, density.answer.latex + "+" + zeroForSmallerY).correct).toBe(false);
+    expect(generator.validate(cdf, cdf.answer.latex + "+" + zeroForSmallerY).correct).toBe(true);
+  });
 });

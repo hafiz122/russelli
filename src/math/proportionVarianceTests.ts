@@ -20,19 +20,22 @@ function direction(rng: SeededRandom, difficulty: Difficulty): Tail {
   return difficulty === "hard" ? "two" : difficulty === "easy" ? "right" : rng.pick(["left", "right"]);
 }
 
-function continuousTail(tail: Tail, lower: number): number {
-  return tail === "left" ? lower : tail === "right" ? 1 - lower : 2 * Math.min(lower, 1 - lower);
+function continuousTail(tail: Tail, lower: number, total = 1): number {
+  const upper = total - lower;
+  return tail === "left" ? lower : tail === "right" ? upper : 2 * Math.min(lower, upper);
 }
 
 function lookup(law: ReferenceLaw, observed: number, tail: Tail) {
   const { lower, table } = referenceFor(law, observed);
-  const roundedTail = (area: number) => formatPValue(continuousTail(tail, area));
-  const area = lower.toFixed(9);
-  if (roundedTail(Number(area)) === roundedTail(lower)) return { lower, table, area };
-
-  // A rounded CDF can cross a fourth-decimal boundary when the requested tail is calculated.
-  const digits = roundedTail(Number(lower.toFixed(12))) === roundedTail(lower) ? 12 : 24;
-  return { ...referenceFor(law, observed, digits), area: lower.toFixed(digits) };
+  const answerUnits = Number(formatPValue(continuousTail(tail, lower)).replace(".", ""));
+  const digits = [9, 12].find(places => {
+    // At both candidate precisions, integer decimal units preserve a printed half-tie exactly.
+    const scale = 10 ** places;
+    const lowerUnits = Number(lower.toFixed(places).replace(".", ""));
+    const tailUnits = continuousTail(tail, lowerUnits, scale);
+    return Math.round(tailUnits / (scale / 10_000)) === answerUnits;
+  }) ?? 24;
+  return { lower, table: digits === 9 ? table : referenceFor(law, observed, digits).table, area: lower.toFixed(digits) };
 }
 
 function pValueSteps(tail: Tail, area: string): string {

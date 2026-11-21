@@ -48,6 +48,8 @@ export type AnswerKind =
 export interface AnswerSpec {
   latex: string;
   kind: AnswerKind;
+  valueSymbol?: string;
+  interiorSupport?: { lower: number; upper: number };
   equivalentLatex?: string[];
   requiresFactoredForm?: boolean;
   forbiddenFactorLatex?: string;
@@ -102,6 +104,7 @@ export interface ValidationResult {
 
 export interface Attempt {
   questionId: string;
+  skipped?: boolean;
   presentationId?: string;
   calibrationIndex?: number | null;
   seed: number;
@@ -126,6 +129,7 @@ export interface SkillDefinition {
 
 export interface LocalProgressV1 {
   schemaVersion: 1;
+  statisticsReadinessVersion: 2;
   resetId: string;
   calibrationCompleted: boolean;
   calibrationIndex: number;

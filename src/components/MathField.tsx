@@ -155,13 +155,13 @@ export function StaticMath({ latex, label, description, className = "", fitToCon
     host.append(field);
     const spokenMath = description || spokenDescription(latex);
     field.setAttribute("aria-label", label ? `${label} ${spokenMath}` : spokenMath);
-    if (scrollIfWide) {
-      field.tabIndex = -1;
-      const updateFocus = () => {
-        if (host.scrollWidth > host.clientWidth + 1) host.tabIndex = 0;
-        else host.removeAttribute("tabindex");
-      };
-      const observer = new ResizeObserver(updateFocus);
+    const updateScrollFocus = () => {
+      if (host.scrollWidth > host.clientWidth + 1) host.tabIndex = 0;
+      else host.removeAttribute("tabindex");
+    };
+    if (scrollIfWide) field.tabIndex = -1;
+    if (scrollIfWide && !fitToContainer) {
+      const observer = new ResizeObserver(updateScrollFocus);
       observer.observe(host);
       observer.observe(field);
       return () => {
@@ -172,8 +172,14 @@ export function StaticMath({ latex, label, description, className = "", fitToCon
     }
     if (!fitToContainer) return () => field.remove();
 
-    const clauses = latex.includes("\\begin{gathered}") ? [latex] : latex.split(/,\s*\\quad\s*/);
-    const multiline = `\\begin{gathered}${clauses.join(",\\\\")}\\end{gathered}`;
+    const gathered = latex.startsWith("\\begin{gathered}") && latex.endsWith("\\end{gathered}");
+    const body = gathered ? latex.slice("\\begin{gathered}".length, -"\\end{gathered}".length) : latex;
+    const clauses = gathered && !scrollIfWide ? [latex] : body.split(/,\s*\\quad\s*/);
+    const separated = clauses.join(",\\\\");
+    // A wide data table must not push shorter hypotheses out of the initial scroll view.
+    const multiline = scrollIfWide ? `\\begin{array}{l}${separated}\\end{array}`
+      : `\\begin{gathered}${separated}\\end{gathered}`;
+    const canWrap = clauses.length > 1 || (gathered && scrollIfWide);
     let singleLineWidth = 0;
     let displayedLatex = latex;
     let frame = 0;
@@ -198,8 +204,8 @@ export function StaticMath({ latex, label, description, className = "", fitToCon
         parseFloat(contentStyle.paddingLeft) + parseFloat(contentStyle.paddingRight);
       const available = Math.max(1, host.clientWidth - padding);
       if (displayedLatex === latex) singleLineWidth = widthPerEm;
-      const nextLatex = clauses.length > 1 && singleLineWidth * preferredSize * 0.85 > available
-        ? multiline : latex;
+      const wrapWidth = singleLineWidth * preferredSize * (scrollIfWide ? 1 : 0.85);
+      const nextLatex = canWrap && wrapWidth > available ? multiline : latex;
 
       if (nextLatex !== displayedLatex) {
         displayedLatex = nextLatex;
@@ -208,8 +214,12 @@ export function StaticMath({ latex, label, description, className = "", fitToCon
         return;
       }
 
-      const size = Math.floor(Math.min(preferredSize, (available - 1) / widthPerEm) * 10) / 10;
-      if (Math.abs(size - currentSize) > 0.05) field.style.fontSize = `${size}px`;
+      if (scrollIfWide) {
+        updateScrollFocus();
+      } else {
+        const size = Math.floor(Math.min(preferredSize, (available - 1) / widthPerEm) * 10) / 10;
+        if (Math.abs(size - currentSize) > 0.05) field.style.fontSize = `${size}px`;
+      }
     };
 
     const fontsChanged = () => {
@@ -232,6 +242,10 @@ export function StaticMath({ latex, label, description, className = "", fitToCon
       observer.disconnect();
       window.removeEventListener("resize", schedule);
       document.fonts.removeEventListener("loadingdone", fontsChanged);
+      if (scrollIfWide) {
+        host.removeAttribute("tabindex");
+        host.scrollLeft = 0;
+      }
       field.remove();
     };
   }, [className, fitToContainer, label, description, latex, scrollIfWide]);

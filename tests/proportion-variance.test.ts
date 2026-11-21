@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { proportionVarianceGenerators } from "../src/math/proportionVarianceTests";
-import { formatPValue, readTestAnswer } from "../src/math/testAnswers";
+import { readTestAnswer, testAnswerLatex } from "../src/math/testAnswers";
 import type { Difficulty, Question } from "../src/types";
 
 function simpson(fn: (x: number) => number, upper: number): number {
@@ -27,12 +27,23 @@ function fromLower(q: Question, lower: number): number {
   return tail === "two" ? 2 * Math.min(lower, 1 - lower) : tail === "left" ? lower : 1 - lower;
 }
 
+function paperPValue(q: Question, printedArea: string): string {
+  const [whole, decimals] = printedArea.split(".");
+  const denominator = 10n ** BigInt(decimals.length);
+  const lower = BigInt(whole + decimals);
+  const upper = denominator - lower;
+  const tail = alternative(q);
+  const numerator = tail === "left" ? lower : tail === "right" ? upper : 2n * (lower < upper ? lower : upper);
+  const rounded = (10_000n * numerator + denominator / 2n) / denominator;
+  return (Number(rounded) / 10_000).toFixed(4);
+}
+
 function checkContinuous(q: Question, statistic: number, lower: number) {
   const record = q.referenceTable!.rows.find(([x]) => Math.abs(Number(x) - statistic) <= 5.1e-9);
   expect(record, q.id).toBeDefined();
   expect(Number(record![1]), q.id).toBeCloseTo(lower, 7);
   const reported = readTestAnswer(q.answer.latex)!;
-  expect(reported.pValue, q.id).toBe(formatPValue(fromLower(q, Number(record![1]))));
+  expect(reported.pValue, q.id).toBe(paperPValue(q, record![1]));
   return fromLower(q, lower);
 }
 
@@ -94,18 +105,24 @@ function variances(q: Question): number {
 }
 
 describe("proportion and variance tests", () => {
-  it("preserves the fourth decimal when doubling the F upper tail at 12/7 with 11 and 24 degrees of freedom", () => {
-    const q = proportionVarianceGenerators.variance_tests.generate(9725, "hard");
-    expect(q.referenceTable!.caption).toContain("numerator df 11, denominator df 24");
+  it.each([
+    { seed: 9725, statistic: "1.71428571", df1: 11, df2: 24, lower: "0.869625000094", p: "0.2607" },
+    { seed: 3607, statistic: "2.4", df1: 24, df2: 16, lower: "0.962875000076", p: "0.0742" },
+    { seed: 65199, statistic: "2.625", df1: 7, df2: 12, lower: "0.931875000140", p: "0.1362" }
+  ])("accepts the p-value calculated on paper from the printed F table for seed $seed", ({ seed, statistic, df1, df2, lower, p }) => {
+    const generator = proportionVarianceGenerators.variance_tests;
+    const q = generator.generate(seed, "hard");
     const table = q.referenceTable!;
-    const entry = table.rows.find(([label]) => label === "1.71428571")!;
-    expect(entry[1]).toBe("0.869625000094");
+    expect(table.caption).toContain(`numerator df ${df1}, denominator df ${df2}`);
+    const entry = table.rows.find(([label]) => label === statistic)!;
+    expect(entry[1]).toBe(lower);
+    const calculated = paperPValue(q, entry[1]);
+    expect(calculated).toBe(p);
+    expect(generator.validate(q, testAnswerLatex(calculated, "fail_to_reject")).correct).toBe(true);
     for (const [x, area] of table.rows) {
       expect(x).toMatch(/^\d+\.\d{1,8}$/);
       expect(area).toMatch(/^0\.\d{12}$/);
     }
-    expect(formatPValue(2 * (1 - Number(entry[1])))).toBe("0.2607");
-    expect(readTestAnswer(q.answer.latex)!.pValue).toBe("0.2607");
     expect(q.workedSolution.join(" ")).toContain(entry[1]);
   });
 

@@ -112,7 +112,7 @@ function PointsHelp() {
 }
 
 function HomePage({ progress }: { progress: LocalProgressV1 }) {
-  const hasAttempts = progress.recentAttempts.length > 0;
+  const hasAttempts = progress.recentAttempts.some(attempt => !attempt.skipped);
   const hasAlgebraAttempts = progress.recentAttempts.some((attempt) => algebraSkillIds.includes(attempt.skillId));
   const completed = progress.calibrationCompleted;
   const actionLabel = completed ? "Continue adaptive practice" : hasAlgebraAttempts ? "Continue calibration" : "Start the calibration";
@@ -268,7 +268,7 @@ function PracticePage({ progress, updateProgress, saving, track }: { progress: L
     if (reservationFailed) retryButtonRef.current?.focus();
   }, [reservationFailed]);
 
-  function makeAttempt(result: ValidationResult, submitted: string): Attempt {
+  function makeAttempt(result: Pick<ValidationResult, "correct" | "normalizedAnswer">, submitted: string): Attempt {
     if (!question || !questionContext) throw new Error("No question is ready.");
     return {
       questionId: question.id,
@@ -310,17 +310,8 @@ function PracticePage({ progress, updateProgress, saving, track }: { progress: L
     const commit = await updateProgress((current) => {
       let nextProgress = current;
       if (recordSkip && !feedback?.correct) {
-        const skippedResult: ValidationResult = {
-          parseable: true,
-          correct: false,
-          normalizedAnswer: answer,
-          feedback: "Question skipped.",
-          retryEligible: false
-        };
-        const attempt = makeAttempt(skippedResult, answer);
-        nextProgress = applyRewardEvent(recordAttempt(nextProgress, attempt), {
-          type: "skip", questionId: question.id, presentationId: questionContext.presentationId
-        });
+        const attempt = makeAttempt({ correct: false, normalizedAnswer: answer }, answer);
+        nextProgress = recordAttempt(nextProgress, { ...attempt, skipped: true });
       }
       reservation.current = reservePresentation(nextProgress, {
         presentationId,
@@ -420,7 +411,8 @@ function PracticePage({ progress, updateProgress, saving, track }: { progress: L
           <span className="problem-code">Problem {question.seed.toString(36).toUpperCase()}</span>
         </div>
         <p id="problem-instruction" className="problem-instruction">{question.instruction}</p>
-        <StaticMath className="problem-equation" latex={question.promptLatex} label={question.instruction} description={question.promptDescription} fitToContainer />
+        <StaticMath className="problem-equation" latex={question.promptLatex} label={question.instruction}
+          description={question.promptDescription} fitToContainer scrollIfWide={track === "statistics_probability"} />
         {question.referenceTable && <ProbabilityReference table={question.referenceTable} />}
         <p className="paper-prompt">Work this out on paper, then enter your final answer.</p>
 
@@ -622,7 +614,8 @@ function TermsPage() {
 
 function ProgressPage({ progress, resetProgress, saving }: { progress: LocalProgressV1; resetProgress: () => Promise<boolean>; saving: boolean }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const attempts = progress.recentAttempts;
+  const history = progress.recentAttempts;
+  const attempts = history.filter(attempt => !attempt.skipped);
   const correct = attempts.filter((attempt) => attempt.correct).length;
 
   async function reset() {
@@ -646,7 +639,7 @@ function ProgressPage({ progress, resetProgress, saving }: { progress: LocalProg
         <PointsHelp />
       </section>
 
-      {attempts.length === 0 ? (
+      {history.length === 0 ? (
         <section className="progress-empty" aria-labelledby="empty-title">
           <h2 id="empty-title">No answers recorded yet.</h2>
           <p>Choose a subject. Your answers and progress will appear here.</p>
@@ -712,7 +705,7 @@ function ProgressPage({ progress, resetProgress, saving }: { progress: LocalProg
               <p>Your latest final-answer submissions on this device.</p>
             </div>
             <ol>
-              {attempts.slice(-6).reverse().map((attempt, index) => (
+              {history.slice(-6).reverse().map((attempt, index) => (
                 <li key={`${attempt.questionId}-${attempt.timestamp}-${index}`}>
                   <div>
                     <strong>{getSkill(attempt.skillId).title}</strong>

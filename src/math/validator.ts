@@ -1,6 +1,6 @@
 import { ComputeEngine, isFunction, isNumber, type BoxedExpression } from "@cortex-js/compute-engine";
 import { statisticsSkillIds } from "../data/skills";
-import type { Question, ValidationResult } from "../types";
+import type { AnswerSpec, Question, ValidationResult } from "../types";
 import { distributionLatex, readDistribution } from "./distributions";
 import { formatPValue, readTestAnswer } from "./testAnswers";
 
@@ -91,8 +91,8 @@ function equalExpressions(actual: string, expected: string): boolean {
   );
 }
 
-function equalExactExpressions(actual: string, expected: string): boolean {
-  const left = parseExactValue(actual);
+function equalExactExpressions(actual: string, expected: string, valueSymbol?: string): boolean {
+  const left = parseExactValue(actual, valueSymbol);
   const right = parseExactValue(expected);
   if (!left || !right) return false;
   if (left.isSame(right)) return true;
@@ -100,29 +100,53 @@ function equalExactExpressions(actual: string, expected: string): boolean {
   return left.isIdenticallyEqual(right) === true;
 }
 
-function equalTransformation(actual: string, expected: string, equivalents: string[] = []): boolean {
-  const submitted = parse(actual, true, "rational");
-  const primary = parse(expected, true, "rational");
-  if (!submitted || !primary) return false;
-  if (submitted.isSame(primary)) return true;
-  const left = submitted.simplify();
-  const matches = (expression: BoxedExpression) => {
-    const right = expression.simplify();
-    return left.isSame(right) || ce.box(["Subtract", left, right]).simplify().isSame(ce.number(0));
+function equalTransformation(actual: string, answer: AnswerSpec): boolean {
+  if (actual === answer.latex) return true;
+  const matches = (candidates: string[], simplify: (value: BoxedExpression) => BoxedExpression) => {
+    const submitted = parse(actual, true, "rational");
+    if (!submitted) return false;
+    const left = simplify(submitted);
+    return candidates.some((latex) => {
+      const candidate = parse(latex, true, "rational");
+      if (!candidate) return false;
+      const right = simplify(candidate);
+      return left.isSame(right) || ce.box(["Subtract", left, right]).simplify().isSame(ce.number(0));
+    });
   };
-  return matches(primary) || equivalents.some((latex) => {
-    const alternative = parse(latex, true, "rational");
-    return alternative !== null && matches(alternative);
-  });
+  if (matches([answer.latex, ...(answer.equivalentLatex ?? [])], (value) => value.simplify())) return true;
+  if (!answer.interiorSupport) return false;
+  ce.pushScope();
+  try {
+    ce.assume(ce.box(["Greater", "y", answer.interiorSupport.lower]));
+    ce.assume(ce.box(["Less", "y", answer.interiorSupport.upper]));
+    return matches([answer.latex], (value) => value.map((term) => {
+      if (isFunction(term) && term.operator === "Abs") {
+        const argument = term.ops[0];
+        if (argument.isNonNegative) return argument;
+        if (argument.isNonPositive) return argument.neg();
+      }
+      return term.operator === "Sqrt" ? term.simplify() : term;
+    }).simplify());
+  } finally {
+    ce.popScope();
+  }
 }
 
-function parseExactValue(latex: string): BoxedExpression | undefined {
+function parseExactValue(latex: string, valueSymbol?: string): BoxedExpression | undefined {
   // The engine constructs decimal denominators with a machine power of ten.
   // From 10^23 onward, that can change the fraction before it is compared.
   const value = latex.replace(/(\d*)\.(\d{23,})/g, (_, whole: string, decimals: string) =>
     `\\frac{${whole}${decimals}}{10^{${decimals.length}}}`
   );
-  return parse(value, true, "rational")?.evaluate();
+  const expression = parse(value, true, "rational");
+  if (valueSymbol && expression && isFunction(expression) && expression.operator === "Equal") {
+    if (expression.ops.length !== 2) return undefined;
+    const [left, right] = expression.ops;
+    if (left.json === valueSymbol) return right.evaluate();
+    if (right.json === valueSymbol) return left.evaluate();
+    return undefined;
+  }
+  return expression?.evaluate();
 }
 
 function parseTestResult(latex: string) {
@@ -406,11 +430,11 @@ export function validateAnswer(question: Question, latex: string): ValidationRes
     correct = equalEquations(latex, question.answer.latex);
     normalizedAnswer = parse(latex)!.latex;
   } else if (question.answer.kind === "expression" && question.skillId === "transformations") {
-    correct = equalTransformation(latex, question.answer.latex, question.answer.equivalentLatex);
+    correct = equalTransformation(latex, question.answer);
     normalizedAnswer = parse(latex, true, "rational")!.simplify().latex;
   } else {
     correct = question.answer.kind === "number" && statisticsSkillIds.includes(question.skillId)
-      ? equalExactExpressions(latex, question.answer.latex)
+      ? equalExactExpressions(latex, question.answer.latex, question.answer.valueSymbol)
       : equalExpressions(latex, question.answer.latex);
     normalizedAnswer = parse(latex)!.simplify().latex;
   }

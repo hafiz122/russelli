@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { statisticsSkillIds } from "../src/data/skills";
 import { chooseSkill, difficultyFor, recordAttempt, setPreferredSkill } from "../src/state/adaptive";
-import { clearProgress, createDefaultProgress, loadProgress, saveProgress } from "../src/state/storage";
-import type { Attempt, RecentPresentation } from "../src/types";
+import { clearProgress, createDefaultProgress, loadProgress, saveProgress, STORAGE_KEY } from "../src/state/storage";
+import type { Attempt, LocalProgressV1, RecentPresentation } from "../src/types";
 
 function attempt(overrides: Partial<Attempt> = {}): Attempt {
   return {
@@ -33,6 +33,10 @@ function presentation(index: number): RecentPresentation {
     problemKey: `linear:equation:${index}`,
     answerKey: `${index}`
   };
+}
+
+function saveWithLegacyReadiness(progress: LocalProgressV1) {
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...progress, statisticsReadinessVersion: undefined }));
 }
 
 describe("local progress", () => {
@@ -133,6 +137,73 @@ describe("local progress", () => {
     expect(difficultyFor(0.2)).toBe("easy");
     expect(difficultyFor(0.6)).toBe("medium");
     expect(difficultyFor(0.9)).toBe("hard");
+  });
+
+  it("requires independent work to advance past the first statistics topic", () => {
+    let progress = createDefaultProgress();
+    for (const seed of [1, 2]) {
+      progress = recordAttempt(progress, attempt({
+        questionId: `counting:easy:${seed}`, seed, skillId: "counting", calibrationIndex: null, solutionRevealed: true
+      }));
+    }
+    expect(progress.mastery.counting).toBe(0.35);
+    expect(chooseSkill(progress, "statistics_probability")).toBe("counting");
+    expect(progress.totalPoints).toBe(0);
+    expect(progress.recentAttempts).toHaveLength(2);
+  });
+
+  it("continues to review every statistics topic after all reach maximum readiness", () => {
+    let progress = createDefaultProgress();
+    const lastCycle = [];
+    for (let index = 0; index < 300; index++) {
+      const skillId = chooseSkill(progress, "statistics_probability");
+      progress = recordAttempt(progress, attempt({ questionId: String(index), skillId, calibrationIndex: null }));
+      if (index >= 300 - statisticsSkillIds.length) lastCycle.push(skillId);
+    }
+    expect(new Set(lastCycle)).toEqual(new Set(statisticsSkillIds));
+  });
+
+  it("recognizes legacy blank statistics skips and keeps nonblank submissions", () => {
+    const progress = createDefaultProgress();
+    const checked = attempt({ skillId: "counting", calibrationIndex: null, correct: false, rawLatex: "41" });
+    const skipped = { ...checked, questionId: "counting:easy:9", rawLatex: "", normalizedAnswer: "" };
+    progress.mastery.counting = 0.21;
+    progress.recentAttempts = [skipped, checked];
+    saveWithLegacyReadiness(progress);
+    const restored = loadProgress().progress;
+    expect(restored.recentAttempts).toEqual([checked]);
+    expect(restored.mastery.counting).toBeCloseTo(0.28);
+    saveProgress(restored);
+    expect(loadProgress().progress).toEqual(restored);
+  });
+
+  it("recovers a statistics topic whose only two answers followed solution reveals", () => {
+    const saved = createDefaultProgress();
+    saved.mastery.counting = 0.51;
+    saved.recentAttempts = [1, 2].map(seed => attempt({
+      questionId: `counting:easy:${seed}`, seed, skillId: "counting", calibrationIndex: null, solutionRevealed: true
+    }));
+    saveWithLegacyReadiness(saved);
+    const restored = loadProgress().progress;
+    expect(restored.mastery.counting).toBe(0.35);
+    expect(restored.recentAttempts).toEqual(saved.recentAttempts);
+    saveProgress(restored);
+    expect(loadProgress().progress).toEqual(restored);
+  });
+
+  it("preserves historical readiness when prior checks are outside the retained history", () => {
+    const progress = createDefaultProgress();
+    const skipped = attempt({ skillId: "counting", calibrationIndex: null, correct: false, rawLatex: "", normalizedAnswer: "" });
+    const copied = attempt({ skillId: "discrete_variables", calibrationIndex: null, solutionRevealed: true });
+    progress.mastery.counting = 0.28;
+    progress.mastery.discrete_variables = 0.43;
+    progress.recentAttempts = [...Array.from({ length: 78 }, () => attempt()), copied, skipped];
+    saveWithLegacyReadiness(progress);
+    const restored = loadProgress().progress;
+    expect(restored.recentAttempts).toHaveLength(79);
+    expect(restored.mastery.counting).toBe(0.28);
+    saveProgress(restored);
+    expect(loadProgress().progress).toEqual(restored);
   });
 
   it("counts a revealed calibration question only once across retries", () => {

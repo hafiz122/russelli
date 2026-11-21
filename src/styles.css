@@ -630,6 +630,10 @@ math-field.preview-equation {
   font-size: clamp(2rem, 5vw, 3.8rem);
 }
 
+.responsive-math.scrollable-math {
+  font-size: 2.5rem;
+}
+
 math-field.problem-equation {
   margin-inline: auto;
   font-size: inherit;
@@ -896,6 +900,7 @@ math-field.math-answer-field::part(placeholder) {
 }
 
 .scrollable-math {
+  position: relative;
   overflow-x: auto;
 }
 
@@ -1367,6 +1372,10 @@ math-field.math-answer-field::part(placeholder) {
 
   .responsive-math {
     margin-block: 3rem;
+  }
+
+  .responsive-math.scrollable-math {
+    font-size: 1.5rem;
   }
 
   math-field.math-answer-field {

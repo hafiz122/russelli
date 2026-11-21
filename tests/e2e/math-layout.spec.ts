@@ -24,13 +24,18 @@ async function selectSeed(page: Page, seed: number) {
 
 async function expectExpressionFits(page: Page) {
   await expect.poll(() => page.locator("math-field.problem-equation").evaluate((field) => {
+    const host = field.parentElement!;
     const content = field.shadowRoot!.querySelector<HTMLElement>("[part=content]")!;
     const expression = field.shadowRoot!.querySelector<HTMLElement>(".ML__latex")!;
     const bounds = content.getBoundingClientRect();
     const math = expression.getBoundingClientRect();
-    return math.left >= bounds.left - 1 && math.right <= bounds.right + 1 &&
+    const region = host.getBoundingClientRect();
+    const reachable = host.scrollWidth <= host.clientWidth + 1 ||
+      (getComputedStyle(host).overflowX === "auto" && host.tabIndex === 0);
+    return reachable && region.left >= -1 && region.right <= window.innerWidth + 1 &&
+      math.left >= bounds.left - 1 && math.right <= bounds.right + 1 &&
       content.scrollWidth <= content.clientWidth + 1;
-  }), { message: "the entire expression should be visible without horizontal scrolling" }).toBe(true);
+  }), { message: "every part of the expression should fit or be reachable in its keyboard-scrollable region" }).toBe(true);
 }
 
 for (const scenario of [
@@ -90,10 +95,11 @@ for (const scenario of [
 
     await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
     await expectExpressionFits(page);
-    const overflow = await page.evaluate(() => [...document.querySelectorAll("body *")]
+    await expect.poll(() => page.evaluate(() => [...document.querySelectorAll("body *")]
+      .filter(element => !element.parentElement?.closest(".scrollable-math[tabindex='0']"))
       .filter((element) => element.getBoundingClientRect().right > window.innerWidth + 1)
-      .slice(0, 12).map((element) => `${element.tagName}.${element.className} ${Math.round(element.getBoundingClientRect().right)}`));
-    expect(overflow).toEqual([]);
+      .slice(0, 12).map((element) => `${element.tagName}.${element.className} ${Math.round(element.getBoundingClientRect().right)}`))
+    ).toEqual([]);
   });
 }
 
@@ -121,3 +127,34 @@ test("reflows a composition without changing the answer or leaving short questio
     parseFloat(getComputedStyle(field).fontSize)
   )).toBeGreaterThan(50);
 });
+
+for (const skill of ["continuous_variables", "comparing_means"] as const) {
+  test(`enlarging statistics text enlarges the ${skill} prompt at 320px`, async ({ page }) => {
+    const progress = createDefaultProgress();
+    progress.mastery[skill] = 0.9;
+    await selectSeed(page, 2);
+    await page.addInitScript((record) => {
+      localStorage.setItem("russelli.progress.v1", JSON.stringify(record));
+    }, progress);
+    await page.setViewportSize({ width: 320, height: 900 });
+    await page.goto(`/statistics-probability/?topic=${skill}`);
+    const field = page.locator("math-field.problem-equation");
+    await expect(field).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    const textSize = () => field.evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+    const initial = await textSize();
+    await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+    await expect.poll(textSize).toBeGreaterThanOrEqual(initial * 1.95);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+
+    if (skill === "comparing_means") {
+      const table = field.locator("..");
+      await expect(table).toHaveAttribute("tabindex", "0");
+      await table.focus();
+      await page.keyboard.press("ArrowRight");
+      await expect.poll(() => table.evaluate(el => el.scrollLeft)).toBeGreaterThan(0);
+      await table.evaluate(el => { el.scrollLeft = el.scrollWidth; });
+      expect(await table.evaluate(el => el.scrollWidth - el.clientWidth - el.scrollLeft)).toBeLessThanOrEqual(1);
+    }
+  });
+}

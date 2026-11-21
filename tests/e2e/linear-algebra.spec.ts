@@ -55,11 +55,10 @@ test("matrix entry works by touch and the layout fits narrow and zoomed screens"
   for (const width of [320, 360, 640, 752, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth), `${width}px`).toBeLessThanOrEqual(width);
-    const fits = await page.locator("math-field.problem-equation").evaluate((field) => {
+    await expect.poll(() => page.locator("math-field.problem-equation").evaluate((field) => {
       const content = field.shadowRoot!.querySelector<HTMLElement>("[part=content]")!;
       return content.scrollWidth <= content.clientWidth + 1;
-    });
-    expect(fits, `${width}px math`).toBe(true);
+    }), { message: `the equation should fit after resizing to ${width}px` }).toBe(true);
   }
   await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);

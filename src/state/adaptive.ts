@@ -1,4 +1,4 @@
-import { algebraSkillIds, skills, tracks } from "../data/skills";
+import { algebraSkillIds, skills, statisticsSkillIds, tracks } from "../data/skills";
 import type { Attempt, Difficulty, LocalProgressV1, SkillId, TrackId } from "../types";
 import { applyRewardEvent } from "./rewards";
 
@@ -14,11 +14,6 @@ function readiness(progress: LocalProgressV1, skillId: SkillId): number {
   return Math.min(...skill.prerequisites.map((id) => progress.mastery[id]));
 }
 
-function lastSeenIndex(progress: LocalProgressV1, skillId: SkillId): number {
-  const reverseIndex = [...progress.recentAttempts].reverse().findIndex((attempt) => attempt.skillId === skillId);
-  return reverseIndex < 0 ? 100 : reverseIndex;
-}
-
 export function chooseSkill(progress: LocalProgressV1, track: TrackId = "algebra"): SkillId {
   if (track === "algebra" && !progress.calibrationCompleted) {
     return algebraSkillIds[progress.calibrationIndex] ?? algebraSkillIds[0];
@@ -31,17 +26,18 @@ export function chooseSkill(progress: LocalProgressV1, track: TrackId = "algebra
     if (next) return next;
   }
 
-  return [...candidates].sort((left, right) => {
-    const leftPriority =
-      (1 - progress.mastery[left]) * 0.65 +
-      Math.min(lastSeenIndex(progress, left) / 12, 1) * 0.2 +
-      readiness(progress, left) * 0.15;
-    const rightPriority =
-      (1 - progress.mastery[right]) * 0.65 +
-      Math.min(lastSeenIndex(progress, right) / 12, 1) * 0.2 +
-      readiness(progress, right) * 0.15;
-    return rightPriority - leftPriority;
-  })[0];
+  const history = track === "statistics_probability" && progress.recentPresentations.some(item => candidates.includes(item.skillId))
+    ? progress.recentPresentations : progress.recentAttempts;
+  const newestFirst = [...history].reverse();
+  const ranked = candidates.map(skillId => {
+    const lastSeen = newestFirst.findIndex(item => item.skillId === skillId);
+    const age = lastSeen === -1 ? 100 : lastSeen;
+    const priority = (1 - progress.mastery[skillId]) * 0.65 +
+      Math.min(age / 12, 1) * 0.2 + readiness(progress, skillId) * 0.15;
+    return { skillId, priority, age };
+  });
+  return ranked.sort((a, b) => b.priority - a.priority ||
+    (track === "statistics_probability" ? b.age - a.age : 0))[0].skillId;
 }
 
 export function nextSeed(progress: LocalProgressV1, now = Date.now()): number {
@@ -50,9 +46,19 @@ export function nextSeed(progress: LocalProgressV1, now = Date.now()): number {
   return candidate;
 }
 
-export function recordAttempt(progress: LocalProgressV1, attempt: Attempt): LocalProgressV1 {
+export function readinessAfterAnswer(score: number, attempt: Attempt): number {
+  if (attempt.correct && attempt.solutionRevealed && statisticsSkillIds.includes(attempt.skillId)) return score;
   const delta = attempt.correct ? (attempt.attemptCount === 1 ? 0.08 : 0.04) : -0.07;
-  const nextScore = Math.max(0, Math.min(1, progress.mastery[attempt.skillId] + delta));
+  return Math.max(0, Math.min(1, score + delta));
+}
+
+export function recordAttempt(progress: LocalProgressV1, attempt: Attempt): LocalProgressV1 {
+  const identity = { questionId: attempt.questionId, presentationId: attempt.presentationId };
+  if (attempt.skipped && statisticsSkillIds.includes(attempt.skillId)) {
+    return applyRewardEvent({
+      ...progress, recentSeeds: [...progress.recentSeeds, attempt.seed].slice(-40)
+    }, { type: "skip", ...identity });
+  }
   const completesCurrentSlot = attempt.calibrationIndex !== null && attempt.calibrationIndex !== undefined &&
     algebraSkillIds.includes(attempt.skillId) && attempt.calibrationIndex === progress.calibrationIndex &&
     (attempt.correct || attempt.solutionRevealed);
@@ -60,17 +66,18 @@ export function recordAttempt(progress: LocalProgressV1, attempt: Attempt): Loca
     ? progress.calibrationIndex
     : Math.min(algebraSkillIds.length, progress.calibrationIndex + (attempt.correct || attempt.solutionRevealed ? 1 : 0));
 
-  return applyRewardEvent({
+  const updated = {
     ...progress,
     calibrationIndex: nextCalibrationIndex,
     calibrationCompleted: progress.calibrationCompleted || nextCalibrationIndex >= algebraSkillIds.length,
-    mastery: { ...progress.mastery, [attempt.skillId]: nextScore },
+    mastery: { ...progress.mastery, [attempt.skillId]: readinessAfterAnswer(progress.mastery[attempt.skillId], attempt) },
     recentAttempts: [...progress.recentAttempts, attempt].slice(-80),
     recentSeeds: [...progress.recentSeeds, attempt.seed].slice(-40)
-  }, {
+  };
+  if (attempt.skipped) return applyRewardEvent(updated, { type: "skip", ...identity });
+  return applyRewardEvent(updated, {
     type: "answer",
-    questionId: attempt.questionId,
-    presentationId: attempt.presentationId,
+    ...identity,
     parseable: true,
     correct: attempt.correct,
     solutionRevealed: attempt.solutionRevealed
