@@ -61,7 +61,7 @@ function errorProblem(rng: SeededRandom, difficulty: Difficulty, size: boolean):
   const beta = !size && rng.pick([true, false]);
   const probability = fraction(beta ? denominator - rejectMass : rejectMass, denominator);
   const target = size ? "actual size (Type I error probability)" : beta ? "Type II error probability at the specified alternative" : "power at the specified alternative";
-  const symbol = size ? tex`\alpha_{\rm actual}` : beta ? tex`\beta` : tex`1-\beta`;
+  const symbol = size ? tex`\alpha_{\mathrm{actual}}` : beta ? tex`\beta` : tex`1-\beta`;
   const steps = [
     tex`P_p(\text{reject})=\sum_{k\in\mathcal R}P_p(X=k)`,
     tex`P_{p=${fraction(a, d)}}(\text{reject})=\frac{${rejectMass}}{${denominator}}`,

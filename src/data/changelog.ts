@@ -8,6 +8,16 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    id: "hypothesis-test-notation",
+    date: "2026-11-21",
+    title: "Corrected hypothesis-test subscripts",
+    summary: "Observed z and t statistics now display “obs” as a single subscript.",
+    changes: [
+      "Corrected the p-value and actual-size subscripts in worked solutions.",
+      "Screen readers announce the observed statistic and its value in the question."
+    ]
+  },
+  {
     id: "hypothesis-testing",
     date: "2026-11-21",
     title: "Hypothesis testing practice",

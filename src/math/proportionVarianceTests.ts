@@ -36,9 +36,9 @@ function lookup(law: ReferenceLaw, observed: number, tail: Tail) {
 }
 
 function pValueSteps(tail: Tail, area: string): string {
-  if (tail === "left") return tex`p_{\rm val}\approx ${area}`;
-  if (tail === "right") return tex`p_{\rm val}\approx 1-${area}`;
-  return tex`p_{\rm val}\approx 2\min\left(${area},1-${area}\right)`;
+  if (tail === "left") return tex`p_{\mathrm{val}}\approx ${area}`;
+  if (tail === "right") return tex`p_{\mathrm{val}}\approx 1-${area}`;
+  return tex`p_{\mathrm{val}}\approx 2\min\left(${area},1-${area}\right)`;
 }
 
 function interpretation(pValue: number, alpha: number, claim: string): string {
@@ -75,8 +75,8 @@ const binomialTest: TestingForm = (rng, difficulty) => {
     workedConclusion: interpretation(pValue, alpha, `the success probability ${comparisonWords[right ? "right" : "left"]} ${a}/${d}`),
     workedSolution: [
       tex`X\mid H_0\sim\operatorname{Bin}(${n},${fraction(a, d)})`,
-      tex`p_{\rm val}=P_0(X${right ? "\\ge" : "\\le"} ${x})=\sum_{k=${right ? x : 0}}^{${right ? n : x}}P_0(X=k)`,
-      tex`p_{\rm val}=\frac{${numerator}}{${denominator}}=${fraction(numerator, denominator)}`,
+      tex`p_{\mathrm{val}}=P_0(X${right ? "\\ge" : "\\le"} ${x})=\sum_{k=${right ? x : 0}}^{${right ? n : x}}P_0(X=k)`,
+      tex`p_{\mathrm{val}}=\frac{${numerator}}{${denominator}}=${fraction(numerator, denominator)}`,
       tex`\boxed{${answer.latex}}`
     ]
   };

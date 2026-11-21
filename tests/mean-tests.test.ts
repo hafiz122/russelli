@@ -31,8 +31,8 @@ function checkGivens(q: Question): { statistic: number; df?: number; tail: Tail 
     if (q.difficulty === "medium") {
       return { statistic: (given(prompt, "\\bar x=") - given(prompt, "\\mu_0=")) / given(prompt, "\\operatorname{SE}(\\bar X)="), tail };
     }
-    if (q.difficulty === "easy") return { statistic: given(prompt, "z_{\\rm obs}="), tail };
-    return { statistic: given(prompt, "t_{\\rm obs}="), df: given(prompt, "\\nu="), tail };
+    if (q.difficulty === "easy") return { statistic: given(prompt, "z_{\\mathrm{obs}}="), tail };
+    return { statistic: given(prompt, "t_{\\mathrm{obs}}="), df: given(prompt, "\\nu="), tail };
   }
   const hypothesis = prompt.match(/H_a:(.*?)(?:,\\quad|\\\\)/)![1];
   const tail = hypothesis.includes("\\ne") ? "two" : hypothesis.includes("<") ? "left" : "right";

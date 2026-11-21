@@ -73,7 +73,7 @@ function exercise(skillId: Topic, first: Form, second: Form): QuestionGenerator 
         answer,
         workedSolution: [
           tex`H_0:\ ${e.nullHypothesis}`, tex`H_a:\ ${e.alternative}`, ...e.steps,
-          e.law.family === "t" ? tex`${statisticName}_{\rm obs}=${e.statistic},\quad \nu=${e.law.df}` : tex`${statisticName}_{\rm obs}=${e.statistic}`,
+          e.law.family === "t" ? tex`${statisticName}_{\mathrm{obs}}=${e.statistic},\quad \nu=${e.law.df}` : tex`${statisticName}_{\mathrm{obs}}=${e.statistic}`,
           tex`p=${pFormula}\approx ${pValue.toFixed(4)}`,
           gather([tex`p${reject ? "\\le" : ">"}\alpha`, tex`\text{${reject ? "Reject" : "Fail to reject"} }H_0`])
         ],
@@ -96,7 +96,8 @@ function readingClaim(rng: SeededRandom, difficulty: Difficulty, twoSided: boole
       `method B takes ${tail === "left" ? "longer" : "less time"} on average than A`;
     return {
       instruction: `A team compares two methods. Its signed t statistic uses method A minus method B and has the stated null degrees of freedom. Test the claim that ${question}.`,
-      lines: [tex`D=\mu_A-\mu_B,\quad D_0=0`, tex`t_{\rm obs}=${statistic},\quad \nu=${df}`],
+      lines: [tex`D=\mu_A-\mu_B,\quad D_0=0`, tex`t_{\mathrm{obs}}=${statistic},\quad \nu=${df}`],
+      description: `Mean time for A minus mean time for B has null value zero. Observed t statistic ${statistic} with ${df} degrees of freedom.`,
       law: { family: "t", df }, statistic, tail, nullHypothesis: "D=0", alternative: `D${comparison(tail)}0`,
       claim, hints: ["Write the claim using the stated order A minus B."], steps: []
     };
@@ -105,8 +106,9 @@ function readingClaim(rng: SeededRandom, difficulty: Difficulty, twoSided: boole
   const mean = nullValue + statistic * se;
   return {
     instruction: `A packing line has a reference mean fill of ${nullValue} grams. The inspector suspects the current mean fill is ${directionWord} the reference. ${difficulty === "easy" ? "Use the observed standard normal statistic." : "The sample mean is normal with the known standard error shown."} Test the inspector’s claim.`,
-    lines: difficulty === "easy" ? [tex`\mu_0=${nullValue},\quad z_{\rm obs}=${statistic}`] :
+    lines: difficulty === "easy" ? [tex`\mu_0=${nullValue},\quad z_{\mathrm{obs}}=${statistic}`] :
       [tex`\mu_0=${nullValue},\quad \bar x=${mean}`, tex`\operatorname{SE}(\bar X)=${se}`],
+    description: difficulty === "easy" ? `Null mean ${nullValue} grams. Observed z statistic ${statistic}.` : undefined,
     law: { family: "normal" }, statistic, tail, nullHypothesis: tex`\mu=${nullValue}`,
     alternative: tex`\mu${comparison(tail)}${nullValue}`, claim: `a ${direction} mean fill`,
     hints: ["Express the inspector’s claim as a comparison with the reference mean."],
