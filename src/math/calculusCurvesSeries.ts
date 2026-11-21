@@ -47,18 +47,20 @@ export const curvesSeriesTopics = {
 
   calc_parametric_calculus: topic(1, "Calculus with parametric curves", ["parametric_slope", "parametric_curvature_derivative"], ["CLO1", "CLO3"], (form, rng, difficulty) => {
     const s = level[difficulty], a = rng.int(1, 4 + s), b = rng.int(1, 4 + s), t = rng.nonZero(-2 - s, 2 + s);
-    const prompt = m`x=t^2,\quad y=${a}t^3+${b}t,\quad t=${t}`;
+    const curve = m`x=t^2,\quad y=${a}t^3+${b}t`;
     const slope = m`\frac{dy}{dx}=\frac{${3*a}t^2+${b}}{2t}`;
     if (form === 0) {
+      const target = m`\left.\frac{dy}{dx}\right|_{t=${t}}`;
       const value = fraction(3 * a * t * t + b, 2 * t);
-      return exercise(prompt, "Find the slope of the tangent at the given parameter value.", exact(value),
+      return exercise(m`${curve},\quad ${target}=?`, "Find the slope of the tangent at the given parameter value.", exact(value),
         "Divide the rate of change of y by the rate of change of x at the same t.",
-        [m`\frac{dx}{dt}=2t,\quad\frac{dy}{dt}=${3*a}t^2+${b}`, slope, m`\left.\frac{dy}{dx}\right|_{t=${t}}=${value}`]);
+        [m`\frac{dx}{dt}=2t,\quad\frac{dy}{dt}=${3*a}t^2+${b}`, slope, m`${target}=${value}`]);
     }
+    const target = m`\left.\frac{d^2y}{dx^2}\right|_{t=${t}}`;
     const value = fraction(3 * a * t * t - b, 4 * t ** 3);
-    return exercise(prompt, "This curve is a modeled path. Find how fast its tangent slope changes per unit of horizontal displacement at the stated parameter value.", exact(value),
-      "Differentiate the slope with respect to t, then divide once more by dx/dt.",
-      [slope, m`\frac{d^2y}{dx^2}=\frac{1}{2t}\left(\frac{${3*a}}{2}-\frac{${b}}{2t^2}\right)`, m`\left.\frac{d^2y}{dx^2}\right|_{t=${t}}=${value}`]);
+    return exercise(m`${curve},\quad ${target}=?`, "This curve is a modeled path. Find how fast its tangent slope changes per unit of horizontal displacement at the stated parameter value.", exact(value),
+      "Differentiate the slope with respect to the parameter, then divide by the horizontal velocity.",
+      [slope, m`\frac{d^2y}{dx^2}=\frac{1}{2t}\left(\frac{${3*a}}{2}-\frac{${b}}{2t^2}\right)`, m`${target}=${value}`]);
   }),
 
   calc_polar_coordinates: topic(1, "Polar coordinates", ["polar_to_cartesian", "polar_from_cartesian"], ["CLO1", "CLO3"], (form, rng, difficulty) => {
@@ -106,18 +108,20 @@ export const curvesSeriesTopics = {
         [m`\sin(${k}\theta)=0\quad\Longrightarrow\quad\theta=\frac{j\pi}{${k}}`,
           m`\sin^2(${k}\theta)=\frac{1-\cos(${2*k}\theta)}{2}`, integral]);
     }
+    const speedSquared = m`r^2+\left(\frac{dr}{d\theta}\right)^2`;
+    const radialDerivative = m`\frac{dr}{d\theta}=-${a}\sin\theta`;
     if (s >= 1) {
       const end = s === 2 ? m`2\pi` : m`\pi`, value = (s === 2 ? 8 : 4)*a;
       return exercise(m`r=${a}(1+\cos\theta),\quad 0\leq\theta\leq${end}`, "A cutter traces this curve once over the stated interval. Find the exact distance its tip travels.", exact(value),
         "Use the polar arc-length formula. The square root introduces an absolute value, so check the sign of the half-angle cosine.",
-        [m`r'=-${a}\sin\theta,\quad r^2+(r')^2=${4*a*a}\cos^2(\theta/2)`,
+        [radialDerivative, m`${speedSquared}=${4*a*a}\cos^2(\theta/2)`,
           m`L=${2*a}\int_0^{${end}}|\cos(\theta/2)|\,d\theta=${value}`],
         s === 2 ? "Split the integral at π, where the half-angle cosine changes sign. The two halves have equal length." : "The half-angle cosine is nonnegative over the stated interval.");
     }
     const end = multiplePi(1,k), value = multiplePi(a,k);
     return exercise(m`r=${a}\cos\theta,\quad 0\leq\theta\leq${end}`, "A cutter traces this curve over the stated interval. Find the exact distance its tip travels.", exact(value),
       "Use the square root of the sum of the squared radius and squared radial derivative.",
-      [m`r'=-${a}\sin\theta,\quad r^2+(r')^2=${a*a}`, m`L=\int_0^{${end}}${a}\,d\theta=${value}`]);
+      [radialDerivative, m`${speedSquared}=${a*a}`, m`L=\int_0^{${end}}${a}\,d\theta=${value}`]);
   }),
 
   calc_polar_conics: topic(1, "Conic sections in polar coordinates", ["polar_conic_type", "focus_directrix"], ["CLO1", "CLO3"], (form, rng, difficulty) => {
@@ -137,21 +141,22 @@ export const curvesSeriesTopics = {
 
   calc_sequences: topic(2, "Sequences", ["sequence_limit", "recursive_sequence"], ["CLO1", "CLO3"], (form, rng, difficulty) => {
     const s = level[difficulty], a = rng.int(1,6+s), b = rng.int(2,5+s), c = rng.int(1,7+s);
+    const target = m`\lim_{n\to\infty}a_n`;
     if (form === 0) {
       if (s === 2) {
         const answer = fraction(a,2);
-        return exercise(m`a_n=\sqrt{n^2+${a}n+${c}}-n`, "Find the limit of the sequence as n tends to infinity.", exact(answer),
+        return exercise(m`a_n=\sqrt{n^2+${a}n+${c}}-n,\quad ${target}=?`, "Find the limit of the sequence.", exact(answer),
           "Multiply by the conjugate before taking the limit.",
           [m`a_n=\frac{${a}n+${c}}{\sqrt{n^2+${a}n+${c}}+n}`,
             m`a_n=\frac{${a}+${c}/n}{\sqrt{1+${a}/n+${c}/n^2}+1}\longrightarrow ${answer}`]);
       }
       const p = s+1, answer = fraction(a,b);
-      return exercise(m`a_n=\frac{${a}n^{${p}}+${c}}{${b}n^{${p}}+1}`, "Find the limit of the sequence as n tends to infinity.", exact(answer),
+      return exercise(m`a_n=\frac{${a}n^{${p}}+${c}}{${b}n^{${p}}+1},\quad ${target}=?`, "Find the limit of the sequence.", exact(answer),
         "Divide every term by the highest power of n in the denominator.",
         [m`a_n=\frac{${a}+${c}/n^{${p}}}{${b}+1/n^{${p}}}`, m`\lim_{n\to\infty}a_n=${answer}`]);
     }
     const start = a + b*c, result = fraction(b*c,b-1);
-    return exercise(m`a_1=${start},\quad a_{n+1}=\frac{a_n}{${b}}+${c}`, "A process retains a fixed fraction of its previous amount and adds a fixed amount each cycle. Find its long-run amount.", exact(result),
+    return exercise(m`a_1=${start},\quad a_{n+1}=\frac{a_n}{${b}}+${c},\quad ${target}=?`, "A process retains a fixed fraction of its previous amount and adds a fixed amount each cycle. Find its long-run amount.", exact(result),
       "Look for a fixed point. Check that the distance from this point shrinks at each step.",
       [m`L=\frac{L}{${b}}+${c}\quad\Longrightarrow\quad L=${result}`, m`a_n-L=(a_1-L)\left(\frac{1}{${b}}\right)^{n-1}\longrightarrow 0`]);
   }),
@@ -219,9 +224,10 @@ export const curvesSeriesTopics = {
         conv ? "The p-series upper bound converges, so the given series converges." : "The harmonic lower bound diverges, so the given series diverges.");
     }
     const value = fraction(a,b);
-    return exercise(m`a_n=\frac{${a}n+1}{${b}n^{${p+1}}+1},\quad b_n=\frac{1}{n^{${p}}}`, "A summation estimate uses bₙ as a benchmark for the size of aₙ. Find the limiting factor aₙ/bₙ.", exact(value),
+    const target = m`\lim_{n\to\infty}\frac{a_n}{b_n}`;
+    return exercise(m`a_n=\frac{${a}n+1}{${b}n^{${p+1}}+1},\quad b_n=\frac{1}{n^{${p}}},\quad ${target}=?`, "A summation estimate uses the comparison sequence as a benchmark. Find the limiting ratio.", exact(value),
       "Multiply by the reciprocal of the comparison term, then divide by the highest power of n.",
-      [m`\frac{a_n}{b_n}=\frac{${a}n^{${p+1}}+n^{${p}}}{${b}n^{${p+1}}+1}`, m`\lim_{n\to\infty}\frac{a_n}{b_n}=${value}`],
+      [m`\frac{a_n}{b_n}=\frac{${a}n^{${p+1}}+n^{${p}}}{${b}n^{${p+1}}+1}`, m`${target}=${value}`],
       `This finite positive limit transfers the behavior of the comparison series. Both series ${p === 1 ? "diverge" : "converge"}.`);
   }),
 
@@ -233,7 +239,7 @@ export const curvesSeriesTopics = {
     if (form === 0) {
       return exercise(m`\sum_{n=1}^\infty(-1)^n n^{${p}}\left(\frac{${a}}{${b}}\right)^n`, "What conclusion does the ratio test give?", answer,
         "Take the absolute ratio of consecutive terms. The ratio of the polynomial factors approaches one.",
-        [m`\left|\frac{a_{n+1}}{a_n}\right|=\left(1+\frac{1}{n}\right)^{${p}}\frac{${a}}{${b}}`, m`L=${ratio}`], conclusion);
+        [m`\left|\frac{a_{n+1}}{a_n}\right|=\left(1+\frac{1}{n}\right)^{${p}}\frac{${a}}{${b}}`, m`L=\lim_{n\to\infty}\left|\frac{a_{n+1}}{a_n}\right|=${ratio}`], conclusion);
     }
     return exercise(m`\sum_{n=1}^\infty(-1)^n\left(\frac{${a}n+${p}}{${b}n+1}\right)^n`, "What conclusion does the root test give?", answer,
       "Take the nth root of the absolute value before passing to the limit.",

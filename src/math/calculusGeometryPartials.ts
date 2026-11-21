@@ -35,6 +35,16 @@ function offset(variable: string, center: number): string {
   return center === 0 ? variable : `(${variable}${signedTerm(-center)})`;
 }
 
+function partial(dependent: string, variable: "x" | "y"): string {
+  return `\\frac{\\partial ${dependent}}{\\partial ${variable}}`;
+}
+
+function evaluatedAt(expression: string, point: string): string {
+  return `\\left.${expression}\\right|_{${point}}`;
+}
+
+const mixedPartial = "\\frac{\\partial^2 f}{\\partial y\\,\\partial x}";
+
 function problem(instruction: string, promptLatex: string, answer: AnswerSpec, hints: string[], steps: string[], workedConclusion?: string): CalculusProblem {
   return { instruction, promptLatex, answer, hints, workedSolution: steps, workedConclusion };
 }
@@ -143,7 +153,7 @@ export const geometryPartialsTopics = {
     if (form === 0) {
       const components = p.map((value, i) => terms([v[i], value], ["t", ""]));
       return problem("Write the line as (x(t), y(t), z(t)) with this initial point and constant velocity.",
-        `\\mathbf{r}(0)=${tuple(p)},\\quad\\mathbf{r}'(t)=${tuple(v)}`, triple(components),
+        `\\mathbf{r}(0)=${tuple(p)},\\quad\\frac{d\\mathbf{r}}{dt}=${tuple(v)}`, triple(components),
         ["The vector equation is r(t) = r(0) + tv.", "Write each coordinate using the same parameter t."],
         [`\\mathbf{r}(t)=${tuple(p)}+t${tuple(v)}`, `\\mathbf{r}(t)=${tuple(components)}`]);
     }
@@ -208,17 +218,20 @@ export const geometryPartialsTopics = {
       const wrtX = rng.int(0, 1) === 0;
       const derivative = wrtX ? terms([2 * a, b], ["xy", "y^2"]) : terms([a, 2 * b, c], ["x^2", "xy", ""]);
       const variable = wrtX ? "x" : "y";
-      return problem(`Find the partial derivative with respect to ${variable} as an expression in x and y.`,
-        `f(x,y)=${field}`, { kind: "expression", latex: derivative },
+      const target = partial("f", variable);
+      return problem(`Find the partial derivative with respect to ${variable}. Give an expression in x and y.`,
+        `f(x,y)=${field},\\quad ${target}=?`, { kind: "expression", latex: derivative },
         [`Hold ${wrtX ? "y" : "x"} fixed.`, "Use the power rule on each term."],
-        [`f_{${variable}}=\\frac{\\partial}{\\partial ${variable}}\\left(${field}\\right)`, `f_{${variable}}=${derivative}`]);
+        [`${target}=\\frac{\\partial}{\\partial ${variable}}\\left(${field}\\right)`, `${target}=${derivative}`]);
     }
     const [x, y] = position(rng, limit);
     const result = 2 * a * x + 2 * b * y;
     return problem("First differentiate f with respect to x, then y. Evaluate the mixed derivative at P.",
-      `f(x,y)=${field},\\quad P=${tuple([x, y])}`, number(result),
+      `f(x,y)=${field},\\quad P=${tuple([x, y])},\\quad ${evaluatedAt(mixedPartial, "P")}=?`, number(result),
       ["Take both derivatives before substituting the point.", "The first derivative still depends on both coordinates."],
-      [`f_x=${terms([2 * a, b], ["xy", "y^2"])}`, `f_{xy}=${terms([2 * a, 2 * b], ["x", "y"])}`, `f_{xy}(${x},${y})=${result}`]);
+      [`${partial("f", "x")}=${terms([2 * a, b], ["xy", "y^2"])}`,
+        `${mixedPartial}=\\frac{\\partial}{\\partial y}\\!\\left(${partial("f", "x")}\\right)=${terms([2 * a, 2 * b], ["x", "y"])}`,
+        `${evaluatedAt(mixedPartial, tuple([x, y]))}=${result}`]);
   }),
 
   calc_tangent_planes: topic(4, "Tangent planes and linear approximation", ["tangent_plane", "linear_approximation"], ["CLO3", "CLO3"], (form, rng, difficulty) => {
@@ -228,7 +241,7 @@ export const geometryPartialsTopics = {
     const z = a * x * x + b * y * y;
     const dx = 2 * a * x, dy = 2 * b * y;
     const data = `f(x,y)=${terms([a, b], ["x^2", "y^2"])},\\quad P=${tuple([x, y])}`;
-    const steps = [`f(P)=${z},\\quad f_x(P)=${dx},\\quad f_y(P)=${dy}`,
+    const steps = [`f(P)=${z}`, `${evaluatedAt(partial("f", "x"), "P")}=${dx},\\quad ${evaluatedAt(partial("f", "y"), "P")}=${dy}`,
       `L(x,y)=${terms([z, dx, dy], ["", offset("x", x), offset("y", y)])}`];
     if (form === 0) {
       const equation = `z=${terms([dx, dy, z - dx * x - dy * y], ["x", "y", ""])}`;
@@ -251,17 +264,19 @@ export const geometryPartialsTopics = {
     if (form === 0) {
       const t = rng.nonZero(-limit, limit);
       const value = 2 * a * u * u * t + 2 * b * v * t;
-      return problem("Along the given curve, find dz/dt at the specified t.",
-        `z=${terms([a, b], ["x^2", "y"])},\\quad x=${terms([u], ["t"])},\\quad y=${terms([v], ["t^2"])},\\quad t=${t}`,
+      const target = evaluatedAt("\\frac{dz}{dt}", `t=${t}`);
+      return problem("Find the rate of change of z along the curve at the specified time.",
+        `z=${terms([a, b], ["x^2", "y"])},\\quad x=${terms([u], ["t"])},\\quad y=${terms([v], ["t^2"])},\\quad ${target}=?`,
         number(value), ["Differentiate each coordinate with respect to t.", "Add the two products of a partial derivative and its coordinate rate."],
-        [`\\frac{dz}{dt}=z_x\\frac{dx}{dt}+z_y\\frac{dy}{dt}`,
-          `\\frac{dz}{dt}=(${terms([2 * a], ["x"])})(${u})+(${b})(${terms([2 * v], ["t"])})`, `\\left.\\frac{dz}{dt}\\right|_{t=${t}}=${value}`]);
+        [`\\frac{dz}{dt}=${partial("z", "x")}\\frac{dx}{dt}+${partial("z", "y")}\\frac{dy}{dt}`,
+          `\\frac{dz}{dt}=(${terms([2 * a], ["x"])})(${u})+(${b})(${terms([2 * v], ["t"])})`, `${target}=${value}`]);
     }
     const value = a * u + b * v;
     return problem("A sensor moves across a time-independent temperature field. At this instant, find its signed temperature rate in °C/s.",
-      `(T_x,T_y)=${tuple([a, b])}\\,{}^\\circ\\mathrm{C}/\\mathrm{m},\\quad(x',y')=${tuple([u, v])}\\,\\mathrm{m}/\\mathrm{s}`, number(value),
+      `\\left(${partial("T", "x")},${partial("T", "y")}\\right)=${tuple([a, b])}\\,{}^\\circ\\mathrm{C}/\\mathrm{m},\\quad \\left(\\frac{dx}{dt},\\frac{dy}{dt}\\right)=${tuple([u, v])}\\,\\mathrm{m}/\\mathrm{s},\\quad \\frac{dT}{dt}=?`, number(value),
       ["The field changes along the sensor's path in both coordinate directions.", "Multiply each spatial rate by the corresponding velocity component."],
-      [`\\frac{dT}{dt}=T_xx'+T_yy'`, `\\frac{dT}{dt}=(${a})(${u})+(${b})(${v})=${value}\\,{}^\\circ\\mathrm{C}/\\mathrm{s}`],
+      [`\\frac{dT}{dt}=${partial("T", "x")}\\frac{dx}{dt}+${partial("T", "y")}\\frac{dy}{dt}`,
+        `\\frac{dT}{dt}=(${a})(${u})+(${b})(${v})=${value}\\,{}^\\circ\\mathrm{C}/\\mathrm{s}`],
       value > 0 ? "The positive rate means the sensor is warming at this instant." : value < 0 ? "The negative rate means the sensor is cooling at this instant." : "The two contributions cancel at this instant.");
   }),
 
@@ -274,7 +289,10 @@ export const geometryPartialsTopics = {
       return problem("Classify the critical point of f at the origin.", `f(x,y)=${field}`,
         choice(type, [["minimum", "A strict local minimum"], ["maximum", "A strict local maximum"], ["saddle", "A saddle point"]]),
         ["Find the second partial derivatives.", "Use the Hessian determinant and the sign of the second x derivative."],
-        [`\\nabla f(0,0)=(0,0)`, `D=(${2 * a})(${2 * b})-0^2=${4 * a * b},\\quad f_{xx}=${2 * a}`],
+        [`\\nabla f(0,0)=(0,0)`,
+          `D=\\frac{\\partial^2 f}{\\partial x^2}\\frac{\\partial^2 f}{\\partial y^2}-\\left(${mixedPartial}\\right)^2`,
+          `D(0,0)=(${2 * a})(${2 * b})-0^2=${4 * a * b}`,
+          `${evaluatedAt("\\frac{\\partial^2 f}{\\partial x^2}", "(0,0)")}=${2 * a}`],
         type === "saddle" ? "The Hessian determinant is negative, which gives a saddle point." : type === "minimum" ? "The determinant and the second x derivative are positive, which gives a strict local minimum." : "The determinant is positive and the second x derivative is negative, which gives a strict local maximum.");
     }
     const x = rng.int(1, limit), y = rng.int(1, limit);

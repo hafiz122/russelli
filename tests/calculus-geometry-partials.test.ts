@@ -155,7 +155,9 @@ const checks: Record<string, Check> = {
   },
   first_partial(q) {
     const f = field(q);
-    const index = q.instruction.includes("respect to x") ? 0 : 1;
+    const target = q.promptLatex.match(/\\frac\{\\partial f\}\{\\partial ([xy])\}=\?/)!;
+    const index = target[1] === "x" ? 0 : 1;
+    expect(q.instruction).toContain(`respect to ${target[1]}`);
     for (const [x, y] of [[1, 0], [0, 1], [2, -3], [-1, -1]]) {
       expect(at(q.answer.latex, { x, y })).toBe(slopes(f, x, y)[index]);
     }
@@ -164,6 +166,10 @@ const checks: Record<string, Check> = {
     const f = field(q);
     const [[x, y]] = tuples(q.promptLatex);
     const mixed = (f(x+1, y+1) - f(x+1, y-1) - f(x-1, y+1) + f(x-1, y-1)) / 4;
+    expect(q.promptLatex).toContain("\\left.\\frac{\\partial^2 f}{\\partial y\\,\\partial x}\\right|_{P}=?");
+    expect(q.workedSolution[0]).toContain("\\frac{\\partial f}{\\partial x}=");
+    expect(q.workedSolution[1]).toContain("\\frac{\\partial}{\\partial y}\\!\\left(\\frac{\\partial f}{\\partial x}\\right)");
+    expect(q.workedSolution[2]).toContain(`\\right|_{(${x},${y})}=${mixed}`);
     expect(scalar(q.answer.latex)).toBe(mixed);
   },
   tangent_plane(q) {
@@ -182,8 +188,8 @@ const checks: Record<string, Check> = {
     expect(scalar(q.answer.latex)).toBeCloseTo(f(x, y) + fx * (u-x) + fy * (v-y), 9);
   },
   curve_derivative(q) {
-    const [z, x, y, t0] = q.promptLatex.split(",\\quad ").map(s => s.split("=")[1]);
-    const t = Number(t0);
+    const [z, x, y] = q.promptLatex.split(",\\quad ").map(s => s.split("=")[1]);
+    const t = Number(q.promptLatex.match(/\\frac\{dz\}\{dt\}\\right\|_\{t=(-?\d+)\}=\?/)![1]);
     const composite = (time: number) => at(z, { x: at(x, { t: time }), y: at(y, { t: time }) });
     expect(scalar(q.answer.latex)).toBe((composite(t+1) - composite(t-1)) / 2);
   },
@@ -207,6 +213,13 @@ const checks: Record<string, Check> = {
 };
 
 describe("calculus in space and several variables", () => {
+  it.each([[4, "x"], [1, "y"]] as const)("shows the first derivative for seed %i with respect to %s", (seed, axis) => {
+    const q = geometryPartialsTopics.calc_partial_derivatives.generate(0, new SeededRandom(seed), "easy");
+    const derivative = `\\frac{\\partial f}{\\partial ${axis}}`;
+    expect(q.promptLatex).toContain(`${derivative}=?`);
+    expect(q.workedSolution.at(-1)).toBe(`${derivative}=${q.answer.latex}`);
+  });
+
   for (const difficulty of ["easy", "medium", "hard"] as const) {
     it(`independently solves 1,000 seeded problems per topic at ${difficulty}`, () => {
       for (const t of Object.values(geometryPartialsTopics)) {

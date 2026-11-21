@@ -144,20 +144,22 @@ export const integralTopics = {
   }),
   calc_surface_area: topic(5, "Surface area", ["plane_patch", "paraboloid_patch"], ["CLO2", "CLO2"], (form, rng, difficulty) => {
     const n = power[difficulty], a = rng.int(1, 3 + n), b = rng.int(1, 3 + n);
+    const slopeX = tex`\frac{\partial z}{\partial x}`, slopeY = tex`\frac{\partial z}{\partial y}`;
+    const surfaceElement = tex`dS=\sqrt{1+\left(${slopeX}\right)^2+\left(${slopeY}\right)^2}\,dA`;
     if (form === 0) {
       const w = rng.int(2, 4 + n), h = rng.int(2, 4 + n);
       return numberProblem("Find the surface area of the part of the plane above the rectangle.",
         tex`z=${a}x+${b}y,\quad R=[0,${w}]\times[0,${h}]`,
         `The plane is z equals ${a} x plus ${b} y, above a rectangle of width ${w} and height ${h}.`, tex`${w * h}\sqrt{${1 + a ** 2 + b ** 2}}`,
-        ["Find both first partial derivatives of the height.", "The surface area element is √(1 + fₓ² + fᵧ²) times the horizontal area element."],
-        [tex`f_x=${a},\quad f_y=${b}`, tex`S=\int_0^{${w}}\int_0^{${h}}\sqrt{1+${a}^2+${b}^2}\,dy\,dx`]);
+        ["Find both first partial derivatives of the height.", "Square the two slopes, add their squares to one, and take the square root to get the surface area per unit of horizontal area."],
+        [tex`${slopeX}=${a},\quad ${slopeY}=${b}`, surfaceElement, tex`S=\int_0^{${w}}\int_0^{${h}}\sqrt{1+${a}^2+${b}^2}\,dy\,dx`]);
     }
     const top = 1 + 4 * a ** 2 * b ** 2;
     return numberProblem("Find the exact area of the curved paraboloid above the disk.",
       tex`z=${a}(x^2+y^2),\quad x^2+y^2\le ${b ** 2}`,
       `Height is ${a} times the sum of x squared and y squared. The domain is a disk of radius ${b}.`, tex`\frac{(${top}\sqrt{${top}}-1)\pi}{${6 * a ** 2}}`,
       ["Compute both partial derivatives before changing to polar coordinates.", "Substitute u = 1 + 4a²r² in the radial integral, where a is the height coefficient."],
-      [tex`f_x=${2 * a}x,\quad f_y=${2 * a}y`, tex`S=2\pi\int_0^{${b}}r\sqrt{1+${4 * a ** 2}r^2}\,dr`,
+      [tex`${slopeX}=${2 * a}x,\quad ${slopeY}=${2 * a}y`, surfaceElement, tex`S=2\pi\int_0^{${b}}r\sqrt{1+${4 * a ** 2}r^2}\,dr`,
         tex`S=\frac{\pi}{${4 * a ** 2}}\int_1^{${top}}\sqrt{u}\,du`]);
   }),
   calc_triple_integrals: topic(5, "Triple integrals", ["bounding_planes", "tetrahedral_density"], ["CLO2", "CLO2"], (form, rng, difficulty) => {

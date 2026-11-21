@@ -42,7 +42,7 @@ function check(form: string, question: CalculusProblem): void {
     }
     case "parametric_slope":
     case "parametric_curvature_derivative": {
-      const [a,b,t] = captures(prompt, /y=(\d+)t\^3\+(\d+)t,\\quad t=(-?\d+)/);
+      const [a,b,t] = captures(prompt, /y=(\d+)t\^3\+(\d+)t,.*\\right\|_\{t=(-?\d+)\}/);
       const h = 0.0001, x = (u: number) => u*u, y = (u: number) => a*u**3+b*u;
       const slope = (u: number) => (y(u+h)-y(u-h))/(x(u+h)-x(u-h));
       expect(t).not.toBe(0);
@@ -118,7 +118,7 @@ function check(form: string, question: CalculusProblem): void {
       return;
     }
     case "recursive_sequence": {
-      const [first,b,c] = captures(prompt,/a_1=(\d+).*\\frac\{a_n\}\{(\d+)\}\+(\d+)$/);
+      const [first,b,c] = captures(prompt,/a_1=(\d+).*\\frac\{a_n\}\{(\d+)\}\+(\d+),/);
       let term = first;
       for (let n = 1; n < 100; n++) term = term/b+c;
       expect(scalar(answer)).toBeCloseTo(term,12);
