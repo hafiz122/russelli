@@ -179,7 +179,9 @@ Topic links use the skill ID as a query parameter, for example `/practice/?topic
 
 ### Posting updates
 
-Add an entry at the top of the `changelog` array in [src/data/changelog.ts](src/data/changelog.ts), with a unique `id`, a `YYYY-MM-DD` date, a title, a short summary, and a list of changes. Keep entries newest first and describe changes that are available in that release. Build and deploy the site to publish the post; posts are shared site content, not browser-local progress.
+The Pages build adds each pull request merged into `main` to the Changelog, using its title and UTC merge date. Choose a title that will make sense to someone reading the site. Each deployment includes only merges present in the commit being built.
+
+For a longer release note, add a dated entry to `releaseNotes` in [src/data/changelog.ts](src/data/changelog.ts). Local builds include these notes by default. To preview merged entries too, run `node scripts/build-merge-changelog.mjs` in a full checkout with an authenticated GitHub CLI before building. The Pages workflow generates this data on each deployment.
 
 ## Verification
 
