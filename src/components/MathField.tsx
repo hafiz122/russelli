@@ -5,6 +5,17 @@ MathfieldElement.fontsDirectory = null;
 MathfieldElement.soundsDirectory = null;
 MathfieldElement.keypressSound = null;
 MathfieldElement.plonkSound = null;
+MathfieldElement.openUrl = (href) => {
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    return;
+  }
+  if (["http:", "https:", "file:"].includes(url.protocol)) {
+    window.open(url, "_blank", "noopener");
+  }
+};
 
 interface MathAnswerInputProps {
   value: string;
